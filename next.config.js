@@ -1,18 +1,36 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Image optimization
   images: {
-    domains: ['firebasestorage.googleapis.com', 'images.unsplash.com'],
+    domains: [
+      'firebasestorage.googleapis.com',
+      'images.unsplash.com',
+      'lh3.googleusercontent.com'
+    ],
+    formats: ['image/webp', 'image/avif'],
   },
+
+  // TypeScript handling
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
     ignoreBuildErrors: true,
   },
+
+  // ESLint handling
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
     ignoreDuringBuilds: true,
+  },
+
+  // React strict mode
+  reactStrictMode: true,
+
+  // Experimental features
+  experimental: {
+    esmExternals: true,
+  },
+
+  // Compiler options
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
   },
 }
 
