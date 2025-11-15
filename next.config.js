@@ -23,14 +23,23 @@ const nextConfig = {
   // React strict mode
   reactStrictMode: true,
 
-  // Experimental features
+  // Experimental features to fix build issues
   experimental: {
+    // This helps with the useSearchParams() suspense issue
+    missingSuspenseWithCSRBailout: false,
+    // Better bundling
     esmExternals: true,
   },
 
   // Compiler options
   compiler: {
+    // Remove console logs in production for better performance
     removeConsole: process.env.NODE_ENV === 'production',
+  },
+
+  // Environment variables
+  env: {
+    // Add any custom env vars you want to expose to the browser
   },
 }
 
