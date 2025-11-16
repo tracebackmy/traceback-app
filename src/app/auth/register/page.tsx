@@ -1,17 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import { auth, db } from '@/lib/firebase'
+import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { doc, setDoc } from 'firebase/firestore'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [step, setStep] = useState(1) // 1: Registration, 2: Verification
+  const { sendVerificationEmail, user } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,17 +36,93 @@ export default function RegisterPage() {
 
     try {
       setLoading(true)
-      await createUserWithEmailAndPassword(auth, email, password)
-      router.push('/dashboard')
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setError(error.message || 'Failed to create account')
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Update profile with display name
+      await updateProfile(userCredential.user, {
+        displayName: fullName
+      })
+
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        uid: userCredential.user.uid,
+        email: email,
+        fullName: fullName,
+        phone: phone,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+
+      // Send verification email
+      await sendVerificationEmail()
+      setStep(2)
+
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to create account')
       } else {
         setError('Failed to create account')
       }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleResendVerification = async () => {
+    try {
+      await sendVerificationEmail()
+      alert('Verification email sent!')
+    } catch (err) {
+      setError('Failed to send verification email')
+    }
+  }
+
+  const handleCheckVerification = async () => {
+    await user?.reload()
+    if (user?.emailVerified) {
+      router.push('/profile')
+    } else {
+      alert('Email not verified yet. Please check your inbox.')
+    }
+  }
+
+  if (step === 2) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+              Verify Your Email
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              We&apos;ve sent a verification link to {email}
+            </p>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800 text-sm">
+              Please check your email and click the verification link to activate your account.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <button
+              onClick={handleResendVerification}
+              className="w-full bg-[#FF385C] text-white py-2 px-4 rounded-md hover:bg-[#E31C5F]"
+            >
+              Resend Verification Email
+            </button>
+            
+            <button
+              onClick={handleCheckVerification}
+              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700"
+            >
+              I&apos;ve Verified My Email
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -63,6 +145,38 @@ export default function RegisterPage() {
               {error}
             </div>
           )}
+          
+          <div>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+              Full Name
+            </label>
+            <input
+              id="fullName"
+              name="fullName"
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
+              placeholder="Enter your full name"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+              Phone Number
+            </label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
+              placeholder="Enter your phone number"
+            />
+          </div>
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email address
@@ -79,6 +193,7 @@ export default function RegisterPage() {
               placeholder="Enter your email"
             />
           </div>
+          
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Password
@@ -95,6 +210,7 @@ export default function RegisterPage() {
               placeholder="Enter your password"
             />
           </div>
+          
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
               Confirm Password
@@ -111,6 +227,7 @@ export default function RegisterPage() {
               placeholder="Confirm your password"
             />
           </div>
+          
           <div>
             <button
               type="submit"

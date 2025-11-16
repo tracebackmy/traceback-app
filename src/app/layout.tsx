@@ -1,9 +1,18 @@
-'use client'
 import { AuthProvider } from '@/components/AuthProvider'
+import ChatBoxComponent from '@/components/ChatBox'
 import './globals.css'
+import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 
 const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'Traceback - Lost & Found',
+  description: 'Find your lost items in MRT/LRT/KTM stations',
+  icons: {
+    icon: '/TRACEBACK.png',
+  },
+}
 
 export default function RootLayout({
   children,
@@ -12,19 +21,27 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/TRACEBACK.png" />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <Navbar />
           <main className="min-h-screen bg-gray-50">
             {children}
           </main>
+          <ChatBox />
         </AuthProvider>
       </body>
     </html>
   )
 }
+
+'use client'
+
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
+import Image from 'next/image'
 
 function Navbar() {
   const { user, logout } = useAuth()
@@ -42,8 +59,17 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-bold text-[#FF385C]">
-              Traceback
+            <Link href="/" className="flex items-center">
+              <Image 
+                src="/TRACEBACK.png" 
+                alt="Traceback Logo" 
+                width={40} 
+                height={40} 
+                className="mr-3"
+              />
+              <span className="text-xl font-bold text-[#FF385C]">
+                Traceback
+              </span>
             </Link>
             <div className="ml-10 flex items-baseline space-x-4">
               <Link href="/" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
@@ -53,17 +79,20 @@ function Navbar() {
                 Browse
               </Link>
               {user && (
-                <Link href="/dashboard/report" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                <Link href="/report" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
                   Report
                 </Link>
               )}
+              <Link href="/traceback-admin" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                Admin
+              </Link>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <Link href="/dashboard" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
-                  Dashboard
+                <Link href="/profile" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                  Profile
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -87,4 +116,8 @@ function Navbar() {
       </div>
     </nav>
   )
+}
+
+function ChatBox() {
+  return <ChatBoxComponent />
 }
