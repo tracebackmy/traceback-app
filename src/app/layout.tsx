@@ -1,6 +1,7 @@
 import { AuthProvider } from '@/components/AuthProvider'
 import ChatBoxComponent from '@/components/ChatBox'
 import Navbar from '@/components/Navbar'
+import AdminNavbar from '@/components/AdminNavbar'
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
@@ -27,7 +28,8 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <Navbar />
+          {/* Conditionally render navbar based on route */}
+          <NavbarWrapper />
           <main className="min-h-screen bg-gray-50">
             {children}
           </main>
@@ -36,4 +38,21 @@ export default function RootLayout({
       </body>
     </html>
   )
+}
+
+// Client component to handle navbar logic
+function NavbarWrapper() {
+  // This will be rendered on client side
+  if (typeof window === 'undefined') {
+    return <Navbar /> // Default during SSR
+  }
+  
+  // Check if we're on an admin route
+  const isAdminRoute = window.location.pathname.startsWith('/traceback-admin')
+  
+  if (isAdminRoute) {
+    return null // Don't show user navbar on admin routes
+  }
+  
+  return <Navbar />
 }
