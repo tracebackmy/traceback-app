@@ -1,9 +1,10 @@
 import { User } from 'firebase/auth';
 
 export interface AdminContextType {
-  user: User | null;
+  admin: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 export interface AdminStats {
@@ -14,4 +15,12 @@ export interface AdminStats {
   lostItems: number;
   foundItems: number;
   recentActivity: number;
+}
+
+export interface AdminUser {
+  uid: string;
+  email: string;
+  role: 'admin';
+  permissions: string[];
+  lastLogin?: string;
 }
