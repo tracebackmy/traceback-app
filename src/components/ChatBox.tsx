@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, orderBy, onSnapshot, where, Timestamp, doc, updateDoc } from 'firebase/firestore'
+import Image from 'next/image'
 
 interface Message {
   id: string

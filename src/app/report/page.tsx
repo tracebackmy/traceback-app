@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 interface FormData {
   type: 'lost' | 'found'
@@ -104,8 +105,8 @@ export default function ReportPage() {
 
     const ticketData = {
       userId: user.uid,
-      userName: user.displayName || user.email,
-      userEmail: user.email,
+      userName: user.displayName || user.email || 'Unknown User',
+      userEmail: user.email || 'No email',
       subject: `Support for ${formData.type} item: ${itemTitle}`,
       status: 'open' as const,
       itemId: itemId,
@@ -414,9 +415,11 @@ export default function ReportPage() {
               <div className="mt-3 grid grid-cols-3 gap-3">
                 {images.map((image, index) => (
                   <div key={index} className="relative">
-                    <img
+                    <Image
                       src={URL.createObjectURL(image)}
                       alt={`Preview ${index + 1}`}
+                      width={100}
+                      height={96}
                       className="w-full h-24 object-cover rounded-md"
                     />
                     <button
