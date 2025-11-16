@@ -44,7 +44,8 @@ export default function Navbar() {
                   Report
                 </Link>
               )}
-              <Link href="/traceback-admin" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+              {/* FIXED: Admin link points directly to login */}
+              <Link href="/traceback-admin/login" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
                 Admin
               </Link>
             </div>
