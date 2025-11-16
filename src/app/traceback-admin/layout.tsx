@@ -2,13 +2,13 @@
 
 import { AdminProvider, useAdmin } from '@/components/AdminProvider';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 // Simple Admin Navbar
 function AdminNavbar() {
-  const { admin, logout } = useAdmin();
+  const { user, logout } = useAdmin();
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -63,7 +63,7 @@ function AdminNavbar() {
           
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">
-              {admin?.email}
+              {user?.email || 'Admin'}
             </span>
             <Link 
               href="/"
@@ -85,24 +85,21 @@ function AdminNavbar() {
 }
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const { admin, loading, isAdmin } = useAdmin();
+  const { user, loading } = useAdmin();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    // If not loading and not admin, redirect to login
-    // But ONLY if we're not already on the login page
-    if (!loading && !isAdmin && pathname !== '/traceback-admin/login') {
-      console.log('Redirecting to login: not admin');
+    // Redirect to login if not authenticated and not on login page
+    if (!loading && !user && pathname !== '/traceback-admin/login') {
       router.push('/traceback-admin/login');
     }
     
-    // If admin is verified and on login page, redirect to dashboard
-    if (!loading && isAdmin && pathname === '/traceback-admin/login') {
-      console.log('Redirecting to dashboard: admin verified');
+    // Redirect to dashboard if authenticated and on login page
+    if (!loading && user && pathname === '/traceback-admin/login') {
       router.push('/traceback-admin/dashboard');
     }
-  }, [loading, isAdmin, router, pathname]);
+  }, [loading, user, router, pathname]);
 
   // Show loading state
   if (loading) {
@@ -110,19 +107,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking admin access...</p>
+          <p className="mt-4 text-gray-600">Loading admin panel...</p>
         </div>
       </div>
     );
   }
 
-  // If we're on login page, just show the login form
-  if (pathname === '/traceback-admin/login') {
-    return <div className="min-h-screen bg-gray-50">{children}</div>;
-  }
-
-  // If not admin and not on login page, show redirect message
-  if (!isAdmin) {
+  // If not authenticated and not on login page, show redirect
+  if (!user && pathname !== '/traceback-admin/login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -132,7 +124,12 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Show full admin layout for authenticated admins
+  // If on login page, don't show navbar
+  if (pathname === '/traceback-admin/login') {
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+
+  // Show full admin layout for authenticated users
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavbar />

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 
 export default function AdminNavbar() {
-  const { admin, logout } = useAdmin();
+  const { user, logout } = useAdmin(); // Changed from 'admin' to 'user'
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -61,7 +61,7 @@ export default function AdminNavbar() {
           
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">
-              {admin?.email}
+              {user?.email} {/* Changed from admin?.email to user?.email */}
             </span>
             <Link 
               href="/"

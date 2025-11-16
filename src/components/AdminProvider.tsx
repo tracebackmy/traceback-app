@@ -3,24 +3,26 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { onAdminAuthStateChange, adminSignOut } from '@/lib/admin-auth';
-import { AdminContextType, AdminUser } from '@/types/admin';
+
+interface AdminContextType {
+  user: User | null;
+  loading: boolean;
+  logout: () => Promise<void>;
+}
 
 const AdminContext = createContext<AdminContextType>({
-  admin: null,
+  user: null,
   loading: true,
-  isAdmin: false,
   logout: async () => {},
 });
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAdminAuthStateChange((user, adminStatus) => {
-      setAdmin(user as AdminUser);
-      setIsAdmin(adminStatus);
+    const unsubscribe = onAdminAuthStateChange((user) => {
+      setUser(user);
       setLoading(false);
     });
 
@@ -30,15 +32,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await adminSignOut();
-      setAdmin(null);
-      setIsAdmin(false);
+      setUser(null);
     } catch (error) {
       console.error('Admin logout error:', error);
     }
   };
 
   return (
-    <AdminContext.Provider value={{ admin, loading, isAdmin, logout }}>
+    <AdminContext.Provider value={{ user, loading, logout }}>
       {children}
     </AdminContext.Provider>
   );
