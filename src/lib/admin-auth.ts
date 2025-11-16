@@ -8,7 +8,7 @@ import {
 
 // List of admin emails (move to environment variables later)
 const ADMIN_EMAILS = [
-  'admin@tracebackmy.com',
+  'tracebackfyp@gmail.com',
   // Add more admin emails here
 ];
 

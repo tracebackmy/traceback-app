@@ -2,11 +2,11 @@
 
 import { AdminProvider, useAdmin } from '@/components/AdminProvider';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-// AdminNavbar component included directly in the layout file
+// Simple Admin Navbar
 function AdminNavbar() {
   const { admin, logout } = useAdmin();
   const pathname = usePathname();
@@ -87,24 +87,41 @@ function AdminNavbar() {
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const { admin, loading, isAdmin } = useAdmin();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !isAdmin) {
+    // If not loading and not admin, redirect to login
+    // But ONLY if we're not already on the login page
+    if (!loading && !isAdmin && pathname !== '/traceback-admin/login') {
+      console.log('Redirecting to login: not admin');
       router.push('/traceback-admin/login');
     }
-  }, [loading, isAdmin, router]);
+    
+    // If admin is verified and on login page, redirect to dashboard
+    if (!loading && isAdmin && pathname === '/traceback-admin/login') {
+      console.log('Redirecting to dashboard: admin verified');
+      router.push('/traceback-admin/dashboard');
+    }
+  }, [loading, isAdmin, router, pathname]);
 
+  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verifying admin access...</p>
+          <p className="mt-4 text-gray-600">Checking admin access...</p>
         </div>
       </div>
     );
   }
 
+  // If we're on login page, just show the login form
+  if (pathname === '/traceback-admin/login') {
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+
+  // If not admin and not on login page, show redirect message
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -115,6 +132,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Show full admin layout for authenticated admins
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNavbar />
