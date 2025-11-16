@@ -1,3 +1,5 @@
+'use client'
+
 import { AuthProvider } from '@/components/AuthProvider'
 import ChatBoxComponent from '@/components/ChatBox'
 import './globals.css'
@@ -36,8 +38,6 @@ export default function RootLayout({
     </html>
   )
 }
-
-'use client'
 
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
