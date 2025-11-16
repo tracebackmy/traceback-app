@@ -33,14 +33,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
 
       if (user) {
-        // Check if email is verified
-        if (!user.emailVerified) {
-          // Redirect to verification page if not on verification page already
+        // SKIP email verification check for admin routes
+        const isAdminRoute = pathname.startsWith('/traceback-admin')
+        
+        if (!user.emailVerified && !isAdminRoute) {
+          // Redirect to verification page only for non-admin users
           if (pathname !== '/auth/verify-email' && pathname !== '/auth/register') {
             router.push('/auth/verify-email')
           }
         } else {
-          // Email is verified, redirect to profile if on auth pages
+          // Email is verified OR user is on admin route
           if (pathname === '/auth/verify-email' || pathname === '/auth/register') {
             router.push('/profile')
           }
