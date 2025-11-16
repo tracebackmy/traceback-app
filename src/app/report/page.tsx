@@ -59,11 +59,18 @@ export default function ReportPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  useEffect(() => {
+    useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth/login')
+        router.push('/auth/login')
+        return
     }
-  }, [user, authLoading, router])
+
+    // Check if email is verified
+    if (user && !user.emailVerified) {
+        router.push('/auth/verify-email')
+        return
+    }
+    }, [user, authLoading, router])
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>

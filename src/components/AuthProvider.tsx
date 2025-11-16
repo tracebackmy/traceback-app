@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface AuthContextType {
   user: User | null
@@ -25,33 +25,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user)
       setLoading(false)
-      
-      // Redirect based on authentication status
+
       if (user) {
-        // If user is logged in and email is verified, redirect to profile
-        if (user.emailVerified) {
-          router.push('/profile')
+        // Check if email is verified
+        if (!user.emailVerified) {
+          // Redirect to verification page if not on verification page already
+          if (pathname !== '/auth/verify-email' && pathname !== '/auth/register') {
+            router.push('/auth/verify-email')
+          }
+        } else {
+          // Email is verified, redirect to profile if on auth pages
+          if (pathname === '/auth/verify-email' || pathname === '/auth/register') {
+            router.push('/profile')
+          }
+        }
+      } else {
+        // No user, redirect to home if on protected pages
+        const protectedPaths = ['/profile', '/report', '/dashboard']
+        if (protectedPaths.includes(pathname)) {
+          router.push('/')
         }
       }
     })
 
     return () => unsubscribe()
-  }, [router])
+  }, [router, pathname])
 
   const logout = async () => {
-    await signOut(auth)
-    router.push('/')
+    try {
+      await signOut(auth)
+      router.push('/')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
   }
 
-  const sendVerificationEmail = async () => {
+  const sendVerificationEmail = async (): Promise<void> => {
     if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser)
+      try {
+        // Get the current domain for the verification link
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://traceback-app.vercel.app'
+        await sendEmailVerification(auth.currentUser, {
+          url: `${baseUrl}/profile`,
+          handleCodeInApp: false
+        })
+        // Don't return anything (void)
+        return
+      } catch (error) {
+        console.error('Error sending verification email:', error)
+        // Don't return anything (void)
+        return
+      }
     }
+    // Don't return anything (void)
+    return
   }
 
   const isEmailVerified = user?.emailVerified || false

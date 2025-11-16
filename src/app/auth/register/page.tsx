@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1) // 1: Registration, 2: Verification
-  const { sendVerificationEmail, user } = useAuth()
+  const { sendVerificationEmail } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,9 +57,9 @@ export default function RegisterPage() {
       await sendVerificationEmail()
       setStep(2)
 
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Failed to create account')
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message || 'Failed to create account')
       } else {
         setError('Failed to create account')
       }
@@ -68,57 +68,47 @@ export default function RegisterPage() {
     }
   }
 
-  const handleResendVerification = async () => {
-    try {
-      await sendVerificationEmail()
-      alert('Verification email sent!')
-    } catch (err) {
-      setError('Failed to send verification email')
-    }
-  }
-
-  const handleCheckVerification = async () => {
-    await user?.reload()
-    if (user?.emailVerified) {
-      router.push('/profile')
-    } else {
-      alert('Email not verified yet. Please check your inbox.')
-    }
-  }
-
   if (step === 2) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
-          <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Verify Your Email
+          <div className="text-center">
+            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+              Check Your Email
             </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              We&apos;ve sent a verification link to {email}
+            <p className="mt-2 text-sm text-gray-600">
+              We&apos;ve sent a verification link to <strong>{email}</strong>
             </p>
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-blue-800 text-sm">
               Please check your email and click the verification link to activate your account.
+              You&apos;ll be automatically redirected once verified.
             </p>
           </div>
 
           <div className="space-y-4">
             <button
-              onClick={handleResendVerification}
-              className="w-full bg-[#FF385C] text-white py-2 px-4 rounded-md hover:bg-[#E31C5F]"
+              onClick={() => router.push('/auth/verify-email')}
+              className="w-full bg-[#FF385C] text-white py-3 px-4 rounded-md hover:bg-[#E31C5F] transition-colors duration-200"
             >
-              Resend Verification Email
+              Go to Verification Page
             </button>
             
             <button
-              onClick={handleCheckVerification}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700"
+              onClick={() => router.push('/')}
+              className="w-full bg-gray-600 text-white py-3 px-4 rounded-md hover:bg-gray-700 transition-colors duration-200"
             >
-              I&apos;ve Verified My Email
+              Back to Home
             </button>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-yellow-800 text-sm">
+              <strong>Note:</strong> The verification link expires in 24 hours.
+              If you don&apos;t see the email, check your spam folder.
+            </p>
           </div>
         </div>
       </div>

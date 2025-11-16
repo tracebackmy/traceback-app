@@ -48,13 +48,20 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  useEffect(() => {
+    useEffect(() => {
     if (!user) {
-      router.push('/auth/login')
-      return
+        router.push('/auth/login')
+        return
     }
+    
+    // Check if email is verified
+    if (user && !user.emailVerified) {
+        router.push('/auth/verify-email')
+        return
+    }
+    
     fetchUserProfile()
-  }, [user, router, fetchUserProfile])
+    }, [user, router, fetchUserProfile])
 
   const handleSave = async () => {
     try {
