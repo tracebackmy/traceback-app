@@ -42,14 +42,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // For non-admin routes, handle email verification
         if (!user.emailVerified) {
-          // Only redirect to verification if we're NOT already on verification or register pages
-          if (pathname !== '/auth/verify-email' && pathname !== '/auth/register') {
+          // Only redirect to verification if we're on a protected page that requires verification
+          const pagesThatRequireVerification = ['/profile', '/report', '/dashboard']
+          if (pagesThatRequireVerification.includes(pathname)) {
             console.log('User not verified, redirecting to verification page')
             router.push('/auth/verify-email')
           }
+          // Don't redirect if user is on home, browse, or auth pages
         } else {
-          // Email is verified, redirect away from auth pages to profile
-          if (pathname === '/auth/verify-email' || pathname === '/auth/register' || pathname === '/auth/login') {
+          // Email is verified, redirect away from verification page to profile
+          if (pathname === '/auth/verify-email') {
             console.log('User verified, redirecting to profile')
             router.push('/profile')
           }
@@ -85,11 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendVerificationEmail = async (): Promise<void> => {
     if (auth.currentUser) {
       try {
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://traceback-app.vercel.app'
-        await sendEmailVerification(auth.currentUser, {
-          url: `${baseUrl}/profile`,
-          handleCodeInApp: false
-        })
+        // FIXED: Removed the parameters - Firebase sendEmailVerification doesn't take URL parameters
+        await sendEmailVerification(auth.currentUser)
         return
       } catch (error) {
         console.error('Error sending verification email:', error)

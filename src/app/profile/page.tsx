@@ -15,7 +15,7 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { user, sendVerificationEmail } = useAuth()
   const router = useRouter()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,6 +25,7 @@ export default function ProfilePage() {
     phone: ''
   })
   const [saving, setSaving] = useState(false)
+  const [sendingVerification, setSendingVerification] = useState(false)
 
   const fetchUserProfile = useCallback(async () => {
     try {
@@ -48,20 +49,16 @@ export default function ProfilePage() {
     }
   }, [user])
 
-    useEffect(() => {
+  useEffect(() => {
     if (!user) {
-        router.push('/auth/login')
-        return
+      router.push('/auth/login')
+      return
     }
     
-    // Check if email is verified
-    if (user && !user.emailVerified) {
-        router.push('/auth/verify-email')
-        return
-    }
-    
+    // Check if email is verified - but don't redirect, just show warning
+    // Users can still access profile even if not verified
     fetchUserProfile()
-    }, [user, router, fetchUserProfile])
+  }, [user, router, fetchUserProfile])
 
   const handleSave = async () => {
     try {
@@ -79,6 +76,19 @@ export default function ProfilePage() {
       console.error('Error updating profile:', error)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    try {
+      setSendingVerification(true)
+      await sendVerificationEmail()
+      alert('Verification email sent! Please check your inbox.')
+    } catch (error) {
+      console.error('Error sending verification email:', error)
+      alert('Failed to send verification email. Please try again.')
+    } finally {
+      setSendingVerification(false)
     }
   }
 
@@ -119,6 +129,23 @@ export default function ProfilePage() {
             {editing ? 'Cancel' : 'Edit Profile'}
           </button>
         </div>
+
+        {/* Email Verification Warning - Only show if not verified */}
+        {!user?.emailVerified && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <h3 className="font-semibold text-yellow-900 mb-2">Email Not Verified</h3>
+            <p className="text-yellow-800 text-sm mb-3">
+              Please verify your email address to access all features like reporting lost items.
+            </p>
+            <button
+              onClick={handleResendVerification}
+              disabled={sendingVerification}
+              className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 disabled:opacity-50 text-sm"
+            >
+              {sendingVerification ? 'Sending...' : 'Resend Verification Email'}
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -212,9 +239,17 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <button
                 onClick={() => router.push('/report')}
-                className="w-full text-left text-blue-700 hover:text-blue-900"
+                disabled={!user?.emailVerified}
+                className={`w-full text-left ${
+                  user?.emailVerified 
+                    ? 'text-blue-700 hover:text-blue-900' 
+                    : 'text-gray-400 cursor-not-allowed'
+                }`}
               >
                 Report Lost Item
+                {!user?.emailVerified && (
+                  <span className="text-xs block text-gray-500">(Verify email to report)</span>
+                )}
               </button>
               <button
                 onClick={() => router.push('/browse')}
@@ -225,14 +260,26 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h3 className="font-semibold text-green-900 mb-2">Account Status</h3>
-            <p className="text-green-700">
+          <div className={`border rounded-lg p-4 ${
+            user?.emailVerified 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-yellow-50 border-yellow-200'
+          }`}>
+            <h3 className={`font-semibold mb-2 ${
+              user?.emailVerified ? 'text-green-900' : 'text-yellow-900'
+            }`}>
+              Account Status
+            </h3>
+            <p className={user?.emailVerified ? 'text-green-700' : 'text-yellow-700'}>
               Email {user?.emailVerified ? 'Verified' : 'Not Verified'}
             </p>
             {!user?.emailVerified && (
-              <button className="text-sm text-green-700 hover:text-green-900 mt-2">
-                Resend Verification Email
+              <button 
+                onClick={handleResendVerification}
+                disabled={sendingVerification}
+                className="text-sm text-yellow-700 hover:text-yellow-900 mt-2 disabled:opacity-50"
+              >
+                {sendingVerification ? 'Sending...' : 'Resend Verification Email'}
               </button>
             )}
           </div>
