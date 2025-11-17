@@ -10,7 +10,6 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 // Admin users - stored in Firestore for security
 const ADMIN_USERS = [
   { email: 'tracebackfyp@gmail.com', role: 'super-admin' },
-  // Add more admin emails as needed
 ];
 
 let currentAdmin: User | null = null;
