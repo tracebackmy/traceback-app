@@ -22,6 +22,12 @@ export default function Navbar() {
     }
   }
 
+  console.log('🔍 Navbar Debug:', { 
+    user: user?.email, 
+    pathname,
+    showAdminButton: !user 
+  });
+
   return (
     <nav className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -53,7 +59,11 @@ export default function Navbar() {
               )}
               {/* ⭐⭐⭐ ADMIN BUTTON: Only show when user is NOT logged in ⭐⭐⭐ */}
               {!user && (
-                <Link href="/traceback-admin/login" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                <Link 
+                  href="/traceback-admin/login" 
+                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                  onClick={() => console.log('🔄 Admin button clicked')}
+                >
                   Admin
                 </Link>
               )}
