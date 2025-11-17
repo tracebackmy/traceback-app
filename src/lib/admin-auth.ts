@@ -16,14 +16,17 @@ const ADMIN_USERS = [
 let currentAdmin: User | null = null;
 let adminCheckCompleted = false;
 
+// Helper function to check if email is admin
+const isAdminEmail = (email: string): boolean => {
+  return ADMIN_USERS.some(admin => admin.email === email);
+};
+
 export const adminSignIn = async (email: string, password: string): Promise<User> => {
   try {
     console.log('🔐 Admin sign in attempt:', email);
     
     // Check if email is in admin list
-    const isAdminEmail = ADMIN_USERS.some(admin => admin.email === email);
-    
-    if (!isAdminEmail) {
+    if (!isAdminEmail(email)) {
       throw new Error('Invalid admin credentials');
     }
 
@@ -154,3 +157,6 @@ export const onAdminAuthStateChange = (callback: (user: User | null, isAdmin: bo
     }
   });
 };
+
+// Export the helper function for use in login page
+export { isAdminEmail };

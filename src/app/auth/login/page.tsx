@@ -5,7 +5,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { checkAdminStatus } from '@/lib/admin-auth'
+import { checkAdminStatus, isAdminEmail } from '@/lib/admin-auth' // Import from admin-auth
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -22,17 +22,26 @@ export default function LoginPage() {
       setLoading(true)
       console.log('🔐 Attempting user login...');
       
+      // FIRST: Check if this email is in the admin list BEFORE attempting login
+      if (isAdminEmail(email)) {
+        console.log('🚨 ADMIN detected attempting to login via user page - BLOCKING');
+        setError('Admins must use the admin login page. Please use the admin login link below.');
+        setLoading(false);
+        return;
+      }
+      
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user;
       
-      // CRITICAL: Check if this user is an admin
+      // SECONDARY CHECK: Double-check if this user is an admin
       const isAdmin = await checkAdminStatus(user);
       console.log('🔍 Login check: Is admin?', isAdmin);
       
       if (isAdmin) {
-        console.log('🚨 ADMIN detected in user login - redirecting to admin dashboard');
-        // If admin logs in via user login page, redirect to admin dashboard
-        router.push('/traceback-admin/dashboard');
+        console.log('🚨 ADMIN detected in user login - signing out and showing error');
+        await auth.signOut();
+        setError('Admins must use the admin login page. Please use the admin login link below.');
+        setLoading(false);
         return;
       }
       
