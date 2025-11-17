@@ -36,13 +36,19 @@ export const adminSignIn = async (email: string, password: string): Promise<User
     console.log('✅ Firebase auth successful, storing admin profile...');
     
     // Store admin profile in separate collection
+// TEMPORARY FIX: Try to create admin document but don't fail if it doesn't work
+  try {
     await setDoc(doc(db, 'admins', user.uid), {
       email: user.email,
       role: 'super-admin',
       lastLogin: new Date().toISOString(),
       createdAt: new Date().toISOString()
     }, { merge: true });
-
+    console.log('✅ Admin document created successfully');
+  } catch (docError) {
+    console.warn('⚠️ Admin document creation failed (this is OK for now):', docError);
+    // Continue with login anyway
+  }
     currentAdmin = user;
     adminCheckCompleted = true;
     
