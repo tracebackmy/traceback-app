@@ -35,33 +35,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         pathname 
       });
 
+      // CRITICAL FIX: Skip all processing for admin routes
+      if (pathname.startsWith('/traceback-admin')) {
+        console.log('🚨 AuthProvider: On admin route - SKIPPING user processing');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       if (user) {
-        // FIRST: Check if user is an admin - MAINTAIN SEPARATION
+        // FIRST: Check if user is an admin - COMPLETE SEPARATION
         const isAdmin = await checkAdminStatus(user);
         console.log('🔍 AuthProvider: User admin status:', isAdmin);
         
         if (isAdmin) {
-          console.log('🚨 AuthProvider: ADMIN DETECTED - NOT setting user in AuthProvider');
-          // CRITICAL: Don't set user for admin in user context
+          console.log('🚨 AuthProvider: ADMIN DETECTED - COMPLETELY IGNORING in user context');
+          // CRITICAL: Don't set user AND don't redirect - let AdminProvider handle it
           setUser(null);
           setLoading(false);
-          
-          // If admin is on user routes, redirect to admin dashboard
-          if (!pathname.startsWith('/traceback-admin')) {
-            console.log('📍 AuthProvider: Redirecting admin to admin dashboard');
-            router.push('/traceback-admin/dashboard');
-          }
           return;
         } else {
           console.log('👤 AuthProvider: Regular user detected');
-          // Regular user - block from admin routes
-          if (pathname.startsWith('/traceback-admin')) {
-            console.log('🚫 AuthProvider: User trying to access admin route, redirecting to home');
-            router.push('/');
-            return;
-          }
-
-          // ORIGINAL LOGIC: Handle email verification for regular users
+          
+          // Handle email verification for regular users ONLY
           if (!user.emailVerified) {
             const pagesThatRequireVerification = ['/profile', '/report', '/dashboard']
             if (pagesThatRequireVerification.includes(pathname)) {
@@ -79,11 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(user);
         }
       } else {
-        // No user logged in
+        // No user logged in - only handle user routes
         console.log('👤 AuthProvider: No user logged in');
         
-        const protectedPaths = ['/profile', '/report', '/dashboard']
-        if (protectedPaths.includes(pathname)) {
+        // Only redirect from user protected routes
+        const userProtectedPaths = ['/profile', '/report', '/dashboard']
+        if (userProtectedPaths.includes(pathname)) {
           console.log('🚫 AuthProvider: No user, redirecting from protected page to home');
           router.push('/')
         }
@@ -100,7 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await signOut(auth)
-      router.push('/')
+      // Only redirect user routes to home
+      if (!pathname.startsWith('/traceback-admin')) {
+        router.push('/')
+      }
     } catch (error) {
       console.error('Logout error:', error)
     }

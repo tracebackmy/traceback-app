@@ -5,7 +5,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { checkAdminStatus, isAdminEmail } from '@/lib/admin-auth' // Import from admin-auth
+import { checkAdminStatus, isAdminEmail } from '@/lib/admin-auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -46,7 +46,11 @@ export default function LoginPage() {
       }
       
       console.log('✅ Regular user login successful - going to user dashboard');
+      
+      // ORIGINAL BEHAVIOR: Redirect to dashboard even if not verified
+      // Users can still browse but certain features are protected
       router.push('/dashboard')
+      
     } catch (error: unknown) {
       console.error('❌ User login error:', error);
       if (error instanceof Error) {
