@@ -2,72 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/AuthProvider'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { verifyEmail } from '@/lib/firebase'
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
 
 export default function VerifyEmailPage() {
   const { user, sendVerificationEmail, isEmailVerified } = useAuth()
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
-  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle')
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const oobCode = searchParams.get('oobCode')
 
   useEffect(() => {
-    // Handle email verification from Firebase link
-    const handleEmailVerification = async () => {
-      if (oobCode) {
-        setVerificationStatus('verifying')
-        try {
-          const result = await verifyEmail(oobCode)
-          if (result.success) {
-            setVerificationStatus('success')
-            // Update user's email verification status in Firestore
-            if (user) {
-              await updateDoc(doc(db, 'users', user.uid), {
-                emailVerified: true,
-                updatedAt: new Date()
-              })
-            }
-            // Reload user to get updated verification status
-            setTimeout(() => {
-              if (user) {
-                user.reload()
-                router.push('/profile')
-              }
-            }, 2000)
-          } else {
-            setVerificationStatus('error')
-            setError('Failed to verify email. The link may have expired.')
-          }
-        } catch (err) {
-          setVerificationStatus('error')
-          setError('An error occurred during verification.')
-          console.error('Email verification error:', err)
-        }
-      }
-    }
-
-    handleEmailVerification()
-  }, [oobCode, user, router])
-
-  useEffect(() => {
-    // If user is not logged in and no oobCode, redirect to login
-    if (!user && !oobCode) {
+    // If user is not logged in, redirect to login
+    if (!user) {
       router.push('/auth/login')
       return
     }
 
-    // If email is already verified and no oobCode processing, redirect to profile
-    if (isEmailVerified && !oobCode) {
+    // If email is already verified, redirect to profile
+    if (isEmailVerified) {
       router.push('/profile')
     }
-  }, [user, isEmailVerified, router, oobCode])
+  }, [user, isEmailVerified, router])
 
   const handleResendEmail = async () => {
     try {
@@ -95,39 +51,7 @@ export default function VerifyEmailPage() {
     }
   }
 
-  // Show verification status when processing oobCode
-  if (verificationStatus === 'verifying') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Verifying Your Email</h2>
-          <p className="text-gray-600">Please wait while we verify your email address...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (verificationStatus === 'success') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full text-center">
-          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-            <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Email Verified Successfully!</h2>
-          <p className="text-gray-600 mb-4">Your email has been verified. Redirecting to your profile...</p>
-          <Link href="/profile" className="bg-[#FF385C] text-white px-6 py-2 rounded-md hover:bg-[#E31C5F]">
-            Go to Profile
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user && !oobCode) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full text-center">
@@ -149,7 +73,7 @@ export default function VerifyEmailPage() {
             Verify Your Email
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            We&apos;ve sent a verification link to <strong>{user?.email}</strong>
+            We&apos;ve sent a verification link to <strong>{user.email}</strong>
           </p>
         </div>
         
