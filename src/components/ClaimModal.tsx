@@ -1,9 +1,8 @@
-// src/components/ClaimModal.tsx
 'use client';
 
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ClaimFormData } from '@/types/claim';
 
@@ -37,6 +36,7 @@ export default function ClaimModal({
 
     setLoading(true);
     try {
+      // Create claim request
       const claimData = {
         itemId,
         userId: user.uid,
@@ -50,7 +50,14 @@ export default function ClaimModal({
         updatedAt: Timestamp.now()
       };
 
-      await addDoc(collection(db, 'claims'), claimData);
+      const claimRef = await addDoc(collection(db, 'claims'), claimData);
+
+      // Update item claim status
+      await updateDoc(doc(db, 'items', itemId), {
+        claimStatus: 'claim-pending',
+        currentClaimId: claimRef.id,
+        updatedAt: Timestamp.now()
+      });
       
       // Reset form and close modal
       setFormData({

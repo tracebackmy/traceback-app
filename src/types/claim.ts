@@ -1,4 +1,5 @@
-// src/types/claim.ts
+import { Timestamp } from 'firebase/firestore';
+
 export interface ClaimRequest {
   id: string;
   itemId: string;
@@ -9,11 +10,16 @@ export interface ClaimRequest {
   claimReason: string;
   proofDescription?: string;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  createdAt: unknown;
-  updatedAt: unknown;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   reviewedBy?: string;
-  reviewedAt?: unknown;
+  reviewedAt?: Timestamp;
   rejectionReason?: string;
+  // Link to item data for easier queries
+  itemName?: string;
+  itemCategory?: string;
+  itemStation?: string;
+  itemImageUrls?: string[];
 }
 
 export interface ClaimFormData {
@@ -22,3 +28,6 @@ export interface ClaimFormData {
   userPhone?: string;
   proofDescription?: string;
 }
+
+// Add claim status to items
+export type ItemClaimStatus = 'unclaimed' | 'claim-pending' | 'claimed' | 'under-review';
