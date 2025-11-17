@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import { format } from 'date-fns'
+import Link from 'next/link'
 
 interface Item {
   id: string
@@ -149,14 +150,40 @@ export default function ItemDetailPage() {
             <p className="text-gray-600 whitespace-pre-wrap">{item.description}</p>
           </div>
 
-          {/* Claim Note */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-900 mb-2">Want to claim this item?</h4>
-            <p className="text-blue-800 text-sm">
-              To claim this item, please contact support or use the claim feature (to be implemented).
-              Be prepared to provide proof of ownership.
-            </p>
-          </div>
+          {/* Claim Button Section - NEW */}
+          {item.type === 'found' && item.status === 'open' && (
+            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h3 className="text-lg font-semibold text-green-900 mb-2">Found this item?</h3>
+              <p className="text-green-800 mb-4">
+                If you believe this is your lost item, you can submit a claim request.
+              </p>
+              <Link
+                href={`/items/${item.id}/claim`}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium transition-colors"
+              >
+                Claim This Item
+              </Link>
+            </div>
+          )}
+
+          {/* Status Messages */}
+          {item.status === 'claimed' && (
+            <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <h3 className="text-lg font-semibold text-orange-900 mb-2">Claim Status</h3>
+              <p className="text-orange-800">
+                This item has a pending claim request and is currently under review.
+              </p>
+            </div>
+          )}
+
+          {item.type === 'lost' && (
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">Lost Item</h3>
+              <p className="text-blue-800">
+                This item has been reported as lost. If you&apos;ve found this item, please contact support.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
