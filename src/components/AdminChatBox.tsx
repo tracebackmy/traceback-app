@@ -30,7 +30,8 @@ export default function AdminChatBox() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 
   // Real-time typing indicators
   useEffect(() => {
@@ -117,16 +118,17 @@ export default function AdminChatBox() {
     });
 
     if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = null; // Add this for cleanup
     }
 
     typingTimeoutRef.current = setTimeout(async () => {
-      await updateDoc(doc(db, 'typingIndicators', selectedTicket.id), {
+    await updateDoc(doc(db, 'typingIndicators', selectedTicket.id), {
         isTyping: false,
         timestamp: serverTimestamp()
-      });
+    });
     }, 2000);
-  };
+  }
 
   const handleFileUpload = async (file: File) => {
     if (!admin || !selectedTicket) return;

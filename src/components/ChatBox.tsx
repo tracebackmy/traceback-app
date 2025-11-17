@@ -31,7 +31,7 @@ export default function ChatBox() {
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout>()
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -129,6 +129,7 @@ export default function ChatBox() {
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null; // Add this for cleanup
     }
 
     typingTimeoutRef.current = setTimeout(async () => {
@@ -137,8 +138,7 @@ export default function ChatBox() {
         timestamp: serverTimestamp()
       });
     }, 2000);
-  };
-
+    }
   const createNewTicket = async () => {
     if (!user) return
 
