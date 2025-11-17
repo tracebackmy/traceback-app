@@ -3,9 +3,16 @@
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const pathname = usePathname()
+
+  // ⭐⭐⭐ CRITICAL FIX: Hide user navbar on admin routes ⭐⭐⭐
+  if (pathname.startsWith('/traceback-admin')) {
+    return null
+  }
 
   const handleLogout = async () => {
     try {
@@ -44,10 +51,12 @@ export default function Navbar() {
                   Report
                 </Link>
               )}
-              {/* FIXED: Admin link points directly to login */}
-              <Link href="/traceback-admin/login" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
-                Admin
-              </Link>
+              {/* ⭐⭐⭐ ADMIN BUTTON: Only show when user is NOT logged in ⭐⭐⭐ */}
+              {!user && (
+                <Link href="/traceback-admin/login" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-4">

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { onAdminAuthStateChange, adminSignOut, getCurrentAdmin, isAdminAuthenticated } from '@/lib/admin-auth';
+import { onAdminAuthStateChange, adminSignOut, isAdminAuthenticated, getCurrentAdmin } from '@/lib/admin-auth';
 
 interface AdminContextType {
   admin: User | null;

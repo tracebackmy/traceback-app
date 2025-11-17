@@ -24,7 +24,6 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [checkedRedirect, setCheckedRedirect] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -33,48 +32,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user)
       setLoading(false)
 
-      // Only run redirect logic once per auth state change
-      if (!checkedRedirect) {
-        if (user) {
-          // Skip all redirect logic for admin routes
-          const isAdminRoute = pathname.startsWith('/traceback-admin')
-          
-          if (isAdminRoute) {
-            setCheckedRedirect(true)
-            return // Don't do any redirects on admin routes
-          }
+      if (user) {
+        // ⭐ BLOCK users from accessing admin routes ⭐
+        if (pathname.startsWith('/traceback-admin')) {
+          console.log('User trying to access admin route, redirecting to home')
+          router.push('/')
+          return
+        }
 
-          // For non-admin routes, handle email verification
-          if (!user.emailVerified) {
-            // Only redirect to verification if we're NOT already on verification or register pages
-            if (pathname !== '/auth/verify-email' && pathname !== '/auth/register') {
-              console.log('Redirecting to email verification')
-              router.push('/auth/verify-email')
-            }
-          } else {
-            // Email is verified, redirect away from auth pages to profile
-            if (pathname === '/auth/verify-email' || pathname === '/auth/register' || pathname === '/auth/login') {
-              router.push('/profile')
-            }
+        // For non-admin routes, handle email verification
+        if (!user.emailVerified) {
+          // Only redirect to verification if we're NOT already on verification or register pages
+          if (pathname !== '/auth/verify-email' && pathname !== '/auth/register') {
+            console.log('User not verified, redirecting to verification page')
+            router.push('/auth/verify-email')
           }
         } else {
-          // No user, redirect away from protected pages
-          const protectedPaths = ['/profile', '/report', '/dashboard']
-          if (protectedPaths.includes(pathname)) {
-            router.push('/')
+          // Email is verified, redirect away from auth pages to profile
+          if (pathname === '/auth/verify-email' || pathname === '/auth/register' || pathname === '/auth/login') {
+            console.log('User verified, redirecting to profile')
+            router.push('/profile')
           }
         }
-        setCheckedRedirect(true)
+      } else {
+        // No user, redirect away from protected pages
+        const protectedPaths = ['/profile', '/report', '/dashboard']
+        if (protectedPaths.includes(pathname)) {
+          console.log('No user, redirecting from protected page to home')
+          router.push('/')
+        }
+        
+        // If on admin route and no user, let admin login handle it
+        if (pathname.startsWith('/traceback-admin')) {
+          // Admin routes will handle their own authentication
+          return
+        }
       }
     })
 
     return () => unsubscribe()
-  }, [router, pathname, checkedRedirect])
+  }, [router, pathname])
 
   const logout = async () => {
     try {
       await signOut(auth)
-      setCheckedRedirect(false) // Reset redirect check on logout
       router.push('/')
     } catch (error) {
       console.error('Logout error:', error)

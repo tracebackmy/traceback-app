@@ -6,14 +6,29 @@ import {
   User
 } from 'firebase/auth';
 
-// Separate admin authentication - completely independent from user auth
-let adminUser: User | null = null;
+// Hardcoded admin credentials - ONLY these can access admin panel
+const ADMIN_CREDENTIALS = [
+  { email: 'admin@tracebackmy.com', password: 'admin123' }, // ⚠️ CHANGE THIS PASSWORD!
+  // Add more admin accounts as needed
+];
+
+let currentAdmin: User | null = null;
 
 export const adminSignIn = async (email: string, password: string) => {
   try {
+    // First check against our hardcoded admin list
+    const isValidAdmin = ADMIN_CREDENTIALS.some(cred => 
+      cred.email === email && cred.password === password
+    );
+
+    if (!isValidAdmin) {
+      throw new Error('Invalid admin credentials');
+    }
+
+    // Then sign in with Firebase
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    adminUser = userCredential.user;
-    return adminUser;
+    currentAdmin = userCredential.user;
+    return currentAdmin;
   } catch (error) {
     console.error('Admin sign in error:', error);
     throw error;
@@ -23,7 +38,7 @@ export const adminSignIn = async (email: string, password: string) => {
 export const adminSignOut = async () => {
   try {
     await signOut(auth);
-    adminUser = null;
+    currentAdmin = null;
   } catch (error) {
     console.error('Admin sign out error:', error);
     throw error;
@@ -31,16 +46,20 @@ export const adminSignOut = async () => {
 };
 
 export const getCurrentAdmin = (): User | null => {
-  return adminUser;
+  return currentAdmin;
 };
 
 export const isAdminAuthenticated = (): boolean => {
-  return adminUser !== null;
+  return currentAdmin !== null;
 };
 
 export const onAdminAuthStateChange = (callback: (user: User | null) => void) => {
   return onAuthStateChanged(auth, (user) => {
-    adminUser = user;
-    callback(user);
+    // Only set as admin if they logged in through adminSignIn
+    if (user && currentAdmin && user.uid === currentAdmin.uid) {
+      callback(user);
+    } else {
+      callback(null);
+    }
   });
 };
