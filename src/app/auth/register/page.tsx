@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { doc, setDoc } from 'firebase/firestore'
+import { validatePhone, validatePassword, validateEmail } from '@/lib/validation'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -14,28 +15,83 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1) // 1: Registration, 2: Verification
   const { sendVerificationEmail } = useAuth()
   const router = useRouter()
 
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {}
+
+    // Email validation
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.isValid) {
+      newErrors.email = emailValidation.message
+    }
+
+    // Phone validation
+    const phoneValidation = validatePhone(phone)
+    if (!phoneValidation.isValid) {
+      newErrors.phone = phoneValidation.message
+    }
+
+    // Password validation
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
+      newErrors.password = passwordValidation.message
+    }
+
+    // Confirm password validation
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match'
+    }
+
+    // Name validation
+    if (!fullName.trim()) {
+      newErrors.fullName = 'Full name is required'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleFieldChange = (field: string, value: string) => {
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }))
+    }
+
+    // Update the corresponding state
+    switch (field) {
+      case 'email':
+        setEmail(value)
+        break
+      case 'password':
+        setPassword(value)
+        break
+      case 'confirmPassword':
+        setConfirmPassword(value)
+        break
+      case 'fullName':
+        setFullName(value)
+        break
+      case 'phone':
+        setPhone(value)
+        break
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
+    
+    if (!validateForm()) {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
+    setLoading(true)
 
     try {
-      setLoading(true)
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       
       // Update profile with display name
@@ -49,6 +105,7 @@ export default function RegisterPage() {
         email: email,
         fullName: fullName,
         phone: phone,
+        emailVerified: false, // Add email verification status
         createdAt: new Date(),
         updatedAt: new Date()
       })
@@ -58,10 +115,18 @@ export default function RegisterPage() {
       setStep(2)
 
     } catch (error: unknown) {
+      console.error('Registration error:', error)
       if (error instanceof Error) {
-        setError(error.message || 'Failed to create account')
+        // Handle Firebase auth errors
+        if (error.message.includes('email-already-in-use')) {
+          setErrors({ email: 'This email is already registered' })
+        } else if (error.message.includes('weak-password')) {
+          setErrors({ password: 'Password is too weak' })
+        } else {
+          setErrors({ general: error.message || 'Failed to create account' })
+        }
       } else {
-        setError('Failed to create account')
+        setErrors({ general: 'Failed to create account' })
       }
     } finally {
       setLoading(false)
@@ -130,9 +195,9 @@ export default function RegisterPage() {
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
+          {errors.general && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-              {error}
+              {errors.general}
             </div>
           )}
           
@@ -146,10 +211,13 @@ export default function RegisterPage() {
               type="text"
               required
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
+              onChange={(e) => handleFieldChange('fullName', e.target.value)}
+              className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                errors.fullName ? 'border-red-300' : 'border-gray-300'
+              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
               placeholder="Enter your full name"
             />
+            {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
           </div>
 
           <div>
@@ -160,11 +228,16 @@ export default function RegisterPage() {
               id="phone"
               name="phone"
               type="tel"
+              required
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
-              placeholder="Enter your phone number"
+              onChange={(e) => handleFieldChange('phone', e.target.value)}
+              className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                errors.phone ? 'border-red-300' : 'border-gray-300'
+              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
+              placeholder="e.g., 0123456789"
             />
+            {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+            <p className="mt-1 text-xs text-gray-500">Must be 10 or 11 digits starting with 01</p>
           </div>
 
           <div>
@@ -178,10 +251,13 @@ export default function RegisterPage() {
               autoComplete="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
+              onChange={(e) => handleFieldChange('email', e.target.value)}
+              className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                errors.email ? 'border-red-300' : 'border-gray-300'
+              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
               placeholder="Enter your email"
             />
+            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
           </div>
           
           <div>
@@ -195,10 +271,16 @@ export default function RegisterPage() {
               autoComplete="new-password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
+              onChange={(e) => handleFieldChange('password', e.target.value)}
+              className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                errors.password ? 'border-red-300' : 'border-gray-300'
+              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
               placeholder="Enter your password"
             />
+            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+            <p className="mt-1 text-xs text-gray-500">
+              Must be at least 8 characters with uppercase, lowercase, number, and special character
+            </p>
           </div>
           
           <div>
@@ -212,10 +294,13 @@ export default function RegisterPage() {
               autoComplete="new-password"
               required
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm"
+              onChange={(e) => handleFieldChange('confirmPassword', e.target.value)}
+              className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
               placeholder="Confirm your password"
             />
+            {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
           </div>
           
           <div>
