@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (user) {
-        // FIRST: Check if user is an admin - MAINTAIN SEPARATION
+        // FIRST: Check if user is an admin - THIS IS THE KEY FIX
         const isAdmin = await checkAdminStatus(user);
         console.log('🔍 AuthProvider: User admin status:', isAdmin);
         
@@ -61,18 +61,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          // ORIGINAL LOGIC: Handle email verification for regular users
-          if (!user.emailVerified) {
-            const pagesThatRequireVerification = ['/profile', '/report', '/dashboard']
-            if (pagesThatRequireVerification.includes(pathname)) {
-              console.log('📧 AuthProvider: User not verified, redirecting to verification page');
-              router.push('/auth/verify-email')
-            }
-          } else {
-            if (pathname === '/auth/verify-email') {
-              console.log('✅ AuthProvider: User verified, redirecting to profile');
-              router.push('/profile')
-            }
+          // ENHANCED: Handle email verification for regular users
+          const pagesThatRequireVerification = ['/profile', '/report', '/dashboard'];
+          const authPages = ['/auth/login', '/auth/register', '/auth/verify-email'];
+          
+          // If user is not verified and trying to access protected pages
+          if (!user.emailVerified && pagesThatRequireVerification.includes(pathname)) {
+            console.log('📧 AuthProvider: User not verified, redirecting to verification page');
+            router.push('/auth/verify-email');
+            return;
+          }
+          
+          // If user is verified and on verification page, redirect to profile
+          if (user.emailVerified && pathname === '/auth/verify-email') {
+            console.log('✅ AuthProvider: User verified, redirecting to dashboard');
+            router.push('/dashboard');
+            return;
+          }
+          
+          // If user is not verified and on auth pages, allow access
+          if (!user.emailVerified && authPages.includes(pathname)) {
+            console.log('📧 AuthProvider: User not verified but on auth page, allowing access');
+            setUser(user);
+            setLoading(false);
+            return;
           }
           
           // Set user for regular users only
@@ -82,10 +94,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // No user logged in
         console.log('👤 AuthProvider: No user logged in');
         
-        const protectedPaths = ['/profile', '/report', '/dashboard']
-        if (protectedPaths.includes(pathname)) {
+        const protectedPaths = ['/profile', '/report', '/dashboard'];
+        const authPages = ['/auth/login', '/auth/register', '/auth/verify-email'];
+        
+        // Redirect from protected pages if not logged in
+        if (protectedPaths.includes(pathname) && !authPages.includes(pathname)) {
           console.log('🚫 AuthProvider: No user, redirecting from protected page to home');
-          router.push('/')
+          router.push('/');
         }
         
         setUser(null);
