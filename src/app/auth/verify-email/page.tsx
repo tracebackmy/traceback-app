@@ -64,7 +64,7 @@ function VerifyEmailContent() {
       return
     }
 
-    // If email is already verified and no oobCode processing, redirect to profile
+    // ORIGINAL BEHAVIOR: If email is already verified, redirect to profile
     if (isEmailVerified && !oobCode) {
       router.push('/profile')
     }

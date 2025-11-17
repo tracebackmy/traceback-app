@@ -17,7 +17,6 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState(1) // 1: Registration, 2: Verification
   const { sendVerificationEmail } = useAuth()
   const router = useRouter()
 
@@ -99,20 +98,24 @@ export default function RegisterPage() {
         displayName: fullName
       })
 
-      // Create user document in Firestore
+      // Create user document in Firestore (USERS COLLECTION - SEPARATE FROM ADMINS)
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         email: email,
         fullName: fullName,
         phone: phone,
-        emailVerified: false, // Add email verification status
+        emailVerified: false,
+        role: 'user', // EXPLICITLY SET AS USER
         createdAt: new Date(),
         updatedAt: new Date()
       })
 
       // Send verification email
       await sendVerificationEmail()
-      setStep(2)
+      
+      // ORIGINAL BEHAVIOR: Redirect to verification page but user can still browse
+      console.log('✅ User registered successfully - redirecting to verify email');
+      router.push('/auth/verify-email')
 
     } catch (error: unknown) {
       console.error('Registration error:', error)
@@ -131,53 +134,6 @@ export default function RegisterPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (step === 2) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center">
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Check Your Email
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              We&apos;ve sent a verification link to <strong>{email}</strong>
-            </p>
-          </div>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-blue-800 text-sm">
-              Please check your email and click the verification link to activate your account.
-              You&apos;ll be automatically redirected once verified.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <button
-              onClick={() => router.push('/auth/verify-email')}
-              className="w-full bg-[#FF385C] text-white py-3 px-4 rounded-md hover:bg-[#E31C5F] transition-colors duration-200"
-            >
-              Go to Verification Page
-            </button>
-            
-            <button
-              onClick={() => router.push('/')}
-              className="w-full bg-gray-600 text-white py-3 px-4 rounded-md hover:bg-gray-700 transition-colors duration-200"
-            >
-              Back to Home
-            </button>
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800 text-sm">
-              <strong>Note:</strong> The verification link expires in 24 hours.
-              If you don&apos;t see the email, check your spam folder.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
