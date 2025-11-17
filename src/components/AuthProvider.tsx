@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { User, onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter, usePathname } from 'next/navigation'
+import { checkAdminStatus } from '@/lib/admin-auth'
 
 interface AuthContextType {
   user: User | null
@@ -29,47 +30,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user)
-      setLoading(false)
+      console.log('🔄 AuthProvider: Auth state changed', { 
+        user: user?.email, 
+        pathname 
+      });
 
       if (user) {
-        // ⭐ BLOCK users from accessing admin routes ⭐
-        if (pathname.startsWith('/traceback-admin')) {
-          console.log('User trying to access admin route, redirecting to home')
-          router.push('/')
-          return
-        }
-
-        // For non-admin routes, handle email verification
-        if (!user.emailVerified) {
-          // Only redirect to verification if we're on a protected page that requires verification
-          const pagesThatRequireVerification = ['/profile', '/report', '/dashboard']
-          if (pagesThatRequireVerification.includes(pathname)) {
-            console.log('User not verified, redirecting to verification page')
-            router.push('/auth/verify-email')
+        // FIRST: Check if user is an admin - THIS IS THE KEY FIX
+        const isAdmin = await checkAdminStatus(user);
+        console.log('🔍 AuthProvider: User admin status:', isAdmin);
+        
+        if (isAdmin) {
+          console.log('🚨 AuthProvider: ADMIN DETECTED - NOT setting user in AuthProvider');
+          // CRITICAL: Don't set user for admin in user context
+          setUser(null);
+          setLoading(false);
+          
+          // If admin is on user routes, redirect to admin dashboard
+          if (!pathname.startsWith('/traceback-admin')) {
+            console.log('📍 AuthProvider: Redirecting admin to admin dashboard');
+            router.push('/traceback-admin/dashboard');
           }
-          // Don't redirect if user is on home, browse, or auth pages
+          return;
         } else {
-          // Email is verified, redirect away from verification page to profile
-          if (pathname === '/auth/verify-email') {
-            console.log('User verified, redirecting to profile')
-            router.push('/profile')
+          console.log('👤 AuthProvider: Regular user detected');
+          // Regular user - block from admin routes
+          if (pathname.startsWith('/traceback-admin')) {
+            console.log('🚫 AuthProvider: User trying to access admin route, redirecting to home');
+            router.push('/');
+            return;
           }
+
+          // Handle email verification for regular users
+          if (!user.emailVerified) {
+            const pagesThatRequireVerification = ['/profile', '/report', '/dashboard']
+            if (pagesThatRequireVerification.includes(pathname)) {
+              console.log('📧 AuthProvider: User not verified, redirecting to verification page');
+              router.push('/auth/verify-email')
+            }
+          } else {
+            if (pathname === '/auth/verify-email') {
+              console.log('✅ AuthProvider: User verified, redirecting to profile');
+              router.push('/profile')
+            }
+          }
+          
+          // Set user for regular users only
+          setUser(user);
         }
       } else {
-        // No user, redirect away from protected pages
+        // No user logged in
+        console.log('👤 AuthProvider: No user logged in');
+        
         const protectedPaths = ['/profile', '/report', '/dashboard']
         if (protectedPaths.includes(pathname)) {
-          console.log('No user, redirecting from protected page to home')
+          console.log('🚫 AuthProvider: No user, redirecting from protected page to home');
           router.push('/')
         }
         
-        // If on admin route and no user, let admin login handle it
-        if (pathname.startsWith('/traceback-admin')) {
-          // Admin routes will handle their own authentication
-          return
-        }
+        setUser(null);
       }
+
+      setLoading(false);
     })
 
     return () => unsubscribe()
@@ -87,7 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendVerificationEmail = async (): Promise<void> => {
     if (auth.currentUser) {
       try {
-        // FIXED: Removed the parameters - Firebase sendEmailVerification doesn't take URL parameters
         await sendEmailVerification(auth.currentUser)
         return
       } catch (error) {

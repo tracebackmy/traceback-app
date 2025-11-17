@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { checkAdminStatus } from '@/lib/admin-auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -19,9 +20,26 @@ export default function LoginPage() {
 
     try {
       setLoading(true)
-      await signInWithEmailAndPassword(auth, email, password)
+      console.log('🔐 Attempting user login...');
+      
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user;
+      
+      // CRITICAL: Check if this user is an admin
+      const isAdmin = await checkAdminStatus(user);
+      console.log('🔍 Login check: Is admin?', isAdmin);
+      
+      if (isAdmin) {
+        console.log('🚨 ADMIN detected in user login - redirecting to admin dashboard');
+        // If admin logs in via user login page, redirect to admin dashboard
+        router.push('/traceback-admin/dashboard');
+        return;
+      }
+      
+      console.log('✅ Regular user login successful - going to user dashboard');
       router.push('/dashboard')
     } catch (error: unknown) {
+      console.error('❌ User login error:', error);
       if (error instanceof Error) {
         setError(error.message || 'Failed to sign in')
       } else {
@@ -92,6 +110,15 @@ export default function LoginPage() {
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
+          </div>
+          
+          <div className="text-center pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-600">
+              Admin?{' '}
+              <Link href="/traceback-admin/login" className="font-medium text-[#FF385C] hover:text-[#E31C5F]">
+                Sign in here
+              </Link>
+            </p>
           </div>
         </form>
       </div>

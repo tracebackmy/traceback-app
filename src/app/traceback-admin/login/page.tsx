@@ -18,9 +18,23 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
+      console.log('🔐 Attempting admin login...');
       await adminSignIn(email, password);
+      console.log('✅ Admin login successful, forcing redirect to admin dashboard...');
+      
+      // Force redirect to admin dashboard - use both methods
       router.push('/traceback-admin/dashboard');
+      
+      // Additional safety: force page reload if redirect doesn't work
+      setTimeout(() => {
+        if (window.location.pathname !== '/traceback-admin/dashboard') {
+          console.log('🔄 Forcing hard redirect to admin dashboard');
+          window.location.href = '/traceback-admin/dashboard';
+        }
+      }, 1000);
+      
     } catch (error: unknown) {
+      console.error('❌ Admin login error:', error);
       if (error instanceof Error) {
         setError(error.message || 'Failed to sign in');
       } else {

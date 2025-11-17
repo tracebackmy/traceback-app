@@ -3,8 +3,7 @@ import {
   signInWithEmailAndPassword, 
   signOut,
   onAuthStateChanged,
-  User,
-  AuthError
+  User
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -17,14 +16,9 @@ const ADMIN_USERS = [
 let currentAdmin: User | null = null;
 let adminCheckCompleted = false;
 
-// Custom error type for admin auth
-interface AdminAuthError extends Error {
-  code?: string;
-}
-
 export const adminSignIn = async (email: string, password: string): Promise<User> => {
   try {
-    console.log('Admin sign in attempt:', email);
+    console.log('🔐 Admin sign in attempt:', email);
     
     // Check if email is in admin list
     const isAdminEmail = ADMIN_USERS.some(admin => admin.email === email);
@@ -37,7 +31,7 @@ export const adminSignIn = async (email: string, password: string): Promise<User
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    console.log('Firebase auth successful, storing admin profile...');
+    console.log('✅ Firebase auth successful, storing admin profile...');
     
     // Store admin profile in separate collection
     await setDoc(doc(db, 'admins', user.uid), {
@@ -50,26 +44,27 @@ export const adminSignIn = async (email: string, password: string): Promise<User
     currentAdmin = user;
     adminCheckCompleted = true;
     
-    console.log('Admin sign in completed successfully');
+    console.log('🎉 Admin sign in completed successfully - READY FOR REDIRECT');
     return user;
   } catch (error: unknown) {
-    console.error('Admin sign in error:', error);
+    console.error('❌ Admin sign in error:', error);
     
     // Handle Firebase auth errors with proper typing
     if (error instanceof Error) {
-      const authError = error as AuthError;
+      // Use type assertion for Firebase error codes
+      const firebaseError = error as { code?: string; message: string };
       
       // Provide more specific error messages
-      if (authError.code === 'auth/invalid-credential') {
+      if (firebaseError.code === 'auth/invalid-credential') {
         throw new Error('Invalid email or password');
-      } else if (authError.code === 'auth/too-many-requests') {
+      } else if (firebaseError.code === 'auth/too-many-requests') {
         throw new Error('Too many failed attempts. Please try again later.');
-      } else if (authError.code === 'auth/user-not-found') {
+      } else if (firebaseError.code === 'auth/user-not-found') {
         throw new Error('No account found with this email.');
-      } else if (authError.code === 'auth/wrong-password') {
+      } else if (firebaseError.code === 'auth/wrong-password') {
         throw new Error('Incorrect password.');
       } else {
-        throw new Error(authError.message || 'Failed to sign in');
+        throw new Error(firebaseError.message || 'Failed to sign in');
       }
     } else {
       throw new Error('An unexpected error occurred during sign in');
@@ -82,8 +77,9 @@ export const adminSignOut = async (): Promise<void> => {
     await signOut(auth);
     currentAdmin = null;
     adminCheckCompleted = false;
+    console.log('👋 Admin signed out successfully');
   } catch (error: unknown) {
-    console.error('Admin sign out error:', error);
+    console.error('❌ Admin sign out error:', error);
     if (error instanceof Error) {
       throw error;
     }
@@ -96,55 +92,64 @@ export const getCurrentAdmin = (): User | null => {
 };
 
 export const isAdminAuthenticated = async (): Promise<boolean> => {
-  if (!currentAdmin) return false;
+  if (!currentAdmin) {
+    console.log('🔍 No current admin user');
+    return false;
+  }
   
   try {
     const adminDoc = await getDoc(doc(db, 'admins', currentAdmin.uid));
     const isAuthenticated = adminDoc.exists();
-    console.log('Admin authentication check:', isAuthenticated);
+    console.log('🔐 Admin authentication check:', isAuthenticated, 'for user:', currentAdmin.email);
     return isAuthenticated;
-  } catch (error: unknown) {
-    console.error('Error checking admin auth:', error);
+  } catch (error) {
+    console.error('❌ Error checking admin auth:', error);
     return false;
   }
 };
 
 export const checkAdminStatus = async (user: User | null): Promise<boolean> => {
-  if (!user) return false;
+  if (!user) {
+    console.log('🔍 No user provided for admin check');
+    return false;
+  }
   
   try {
     const adminDoc = await getDoc(doc(db, 'admins', user.uid));
     const isAdmin = adminDoc.exists();
-    console.log('Admin status check for', user.email, ':', isAdmin);
+    console.log('👤 Admin status check for', user.email, ':', isAdmin);
     return isAdmin;
-  } catch (error: unknown) {
-    console.error('Error checking admin status:', error);
+  } catch (error) {
+    console.error('❌ Error checking admin status:', error);
     return false;
   }
 };
 
 export const onAdminAuthStateChange = (callback: (user: User | null, isAdmin: boolean) => void) => {
-  console.log('Setting up admin auth state listener...');
+  console.log('🔄 Setting up admin auth state listener...');
   
   return onAuthStateChanged(auth, async (user) => {
-    console.log('Auth state changed, user:', user?.email);
+    console.log('🔄 Auth state changed, user:', user?.email);
     
     if (user) {
       const isAdmin = await checkAdminStatus(user);
-      console.log('Admin check result:', isAdmin);
+      console.log('🔍 Admin check result:', isAdmin);
       
       if (isAdmin) {
         currentAdmin = user;
         adminCheckCompleted = true;
+        console.log('✅ Admin user detected:', user.email);
         callback(user, true);
       } else {
         currentAdmin = null;
         adminCheckCompleted = true;
+        console.log('❌ User is not an admin:', user.email);
         callback(null, false);
       }
     } else {
       currentAdmin = null;
       adminCheckCompleted = true;
+      console.log('👤 No user logged in');
       callback(null, false);
     }
   });
