@@ -11,7 +11,7 @@ interface AdminContextType {
   isAuthenticated: boolean;
 }
 
-const AdminContext = createContext<AdminContextType>({
+export const AdminContext = createContext<AdminContextType>({
   admin: null,
   loading: true,
   logout: async () => {},
@@ -55,7 +55,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Make sure this export is named correctly
 export const useAdmin = () => {
   const context = useContext(AdminContext);
   if (context === undefined) {
@@ -64,5 +63,4 @@ export const useAdmin = () => {
   return context;
 };
 
-// Export the context itself if needed
 export default AdminProvider;
