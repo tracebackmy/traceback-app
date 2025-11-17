@@ -4,10 +4,14 @@ import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
+import NotificationBell from './NotificationBell'
+import NotificationDropdown from './NotificationDropdown'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const pathname = usePathname()
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
 
   // ⭐⭐⭐ CRITICAL FIX: Hide user navbar on admin routes ⭐⭐⭐
   if (pathname.startsWith('/traceback-admin')) {
@@ -20,6 +24,10 @@ export default function Navbar() {
     } catch (error) {
       console.error('Logout error:', error)
     }
+  }
+
+  const toggleNotifications = () => {
+    setIsNotificationOpen(!isNotificationOpen)
   }
 
   console.log('🔍 Navbar Debug:', { 
@@ -72,6 +80,15 @@ export default function Navbar() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
+                {/* Notification Bell */}
+                <div className="relative">
+                  <NotificationBell onClick={toggleNotifications} />
+                  <NotificationDropdown 
+                    isOpen={isNotificationOpen} 
+                    onClose={() => setIsNotificationOpen(false)} 
+                  />
+                </div>
+                
                 <Link href="/profile" className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
                   Profile
                 </Link>

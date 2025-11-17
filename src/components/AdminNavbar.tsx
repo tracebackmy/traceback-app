@@ -4,10 +4,14 @@ import Link from 'next/link';
 import { useAdmin } from '@/components/AdminProvider';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import { useState } from 'react';
+import NotificationBell from './NotificationBell';
+import NotificationDropdown from './NotificationDropdown';
 
 export default function AdminNavbar() {
   const { admin, logout } = useAdmin();
   const pathname = usePathname();
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -15,6 +19,10 @@ export default function AdminNavbar() {
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  const toggleNotifications = () => {
+    setIsNotificationOpen(!isNotificationOpen);
   };
 
   const navigation = [
@@ -62,6 +70,15 @@ export default function AdminNavbar() {
           </div>
           
           <div className="flex items-center space-x-4">
+            {/* Admin Notification Bell */}
+            <div className="relative">
+              <NotificationBell onClick={toggleNotifications} />
+              <NotificationDropdown 
+                isOpen={isNotificationOpen} 
+                onClose={() => setIsNotificationOpen(false)} 
+              />
+            </div>
+            
             <span className="text-sm text-gray-600">
               {admin?.email || 'Admin'}
             </span>
