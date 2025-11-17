@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -8,8 +8,7 @@ import { verifyEmail } from '@/lib/firebase'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
-// Wrap the component that uses useSearchParams
-function VerifyEmailContent() {
+export default function VerifyEmailPage() {
   const { user, sendVerificationEmail, isEmailVerified } = useAuth()
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
@@ -209,22 +208,5 @@ function VerifyEmailContent() {
         </div>
       </div>
     </div>
-  )
-}
-
-// Main component with Suspense boundary
-export default function VerifyEmailPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Loading...</h2>
-          <p className="text-gray-600">Please wait while we load the verification page.</p>
-        </div>
-      </div>
-    }>
-      <VerifyEmailContent />
-    </Suspense>
   )
 }
