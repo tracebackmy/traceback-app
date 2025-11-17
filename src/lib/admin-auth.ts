@@ -8,7 +8,7 @@ import {
 
 // Hardcoded admin credentials - ONLY these can access admin panel
 const ADMIN_CREDENTIALS = [
-  { email: 'admin@tracebackmy.com', password: 'admin123' }, // ⚠️ CHANGE THIS PASSWORD!
+  { email: 'tracebackfyp@gmail.com', password: 'swe/151/23b' }, // ⚠️ CHANGE THIS PASSWORD!
   // Add more admin accounts as needed
 ];
 
