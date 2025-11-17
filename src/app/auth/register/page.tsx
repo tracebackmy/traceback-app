@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { doc, setDoc } from 'firebase/firestore'
 import { validatePhone, validatePassword, validateEmail } from '@/lib/validation'
-import { isAdminEmail } from '@/lib/admin-auth'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -28,11 +27,6 @@ export default function RegisterPage() {
     const emailValidation = validateEmail(email)
     if (!emailValidation.isValid) {
       newErrors.email = emailValidation.message
-    }
-
-    // CRITICAL: Check if email is an admin email
-    if (isAdminEmail(email)) {
-      newErrors.email = 'This email is reserved for administrators. Please use a different email.'
     }
 
     // Phone validation

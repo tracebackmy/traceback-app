@@ -32,8 +32,8 @@ export default function AdminLoginPage() {
       await adminSignIn(email, password);
       console.log('✅ Admin login successful, redirecting to admin dashboard...');
       
-      // CRITICAL FIX: Force immediate redirect and prevent any interference
-      window.location.href = '/traceback-admin/dashboard';
+      // Force redirect to admin dashboard
+      router.push('/traceback-admin/dashboard');
       
     } catch (error: unknown) {
       console.error('❌ Admin login error:', error);
