@@ -24,6 +24,7 @@ export default function AdminNavbar() {
     { name: 'Users', href: '/traceback-admin/users' },
     { name: 'CCTV', href: '/traceback-admin/cctv' },
     { name: 'Claims', href: '/traceback-admin/claims' },
+    { name: 'Analytics', href: '/traceback-admin/analytics' },
   ];
 
   return (
