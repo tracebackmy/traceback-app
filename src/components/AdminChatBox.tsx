@@ -1,70 +1,81 @@
+// src/components/AdminChatBox.tsx
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, addDoc, query, orderBy, onSnapshot, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useState, useEffect, useRef } from 'react';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  where, 
+  Timestamp, 
+  doc, 
+  updateDoc,
+  serverTimestamp 
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import { useAdmin } from '@/components/AdminProvider';
-
-interface Message {
-  id: string;
-  text: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  timestamp: Timestamp;
-  isAdmin: boolean;
-  ticketId: string;
-}
-
-interface Ticket {
-  id: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  subject: string;
-  status: 'open' | 'closed';
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  lastMessage?: string;
-}
+import { ChatMessage, TypingIndicator, Ticket } from '@/types/chat';
 
 export default function AdminChatBox() {
   const { admin } = useAdmin();
   const [isOpen, setIsOpen] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Define fetchTickets first using useCallback to prevent recreation
-  const fetchTickets = useCallback(async () => {
-    try {
-      const ticketsQuery = query(
-        collection(db, 'tickets'),
-        orderBy('updatedAt', 'desc')
-      );
+  // Real-time typing indicators
+  useEffect(() => {
+    if (!selectedTicket?.id) return;
+
+    const typingRef = doc(db, 'typingIndicators', selectedTicket.id);
+    const unsubscribe = onSnapshot(typingRef, (doc) => {
+      const data = doc.data() as TypingIndicator;
+      if (data && data.userType === 'user' && data.isTyping) {
+        setIsTyping(true);
+        setTimeout(() => setIsTyping(false), 3000);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [selectedTicket?.id]);
+
+  // Fetch tickets when chat opens
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const ticketsQuery = query(
+      collection(db, 'tickets'),
+      orderBy('updatedAt', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(ticketsQuery, (snapshot) => {
+      const ticketsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Ticket[];
       
-      const unsubscribe = onSnapshot(ticketsQuery, (snapshot) => {
-        const ticketsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Ticket[];
-        
-        setTickets(ticketsData);
-      });
+      setTickets(ticketsData);
+    });
 
-      return unsubscribe;
-    } catch (error) {
-      console.error('Error fetching tickets:', error);
-    }
-  }, []);
+    return () => unsubscribe();
+  }, [isOpen]);
 
-  // Define fetchMessages using useCallback
-  const fetchMessages = useCallback((ticketId: string) => {
+  // Fetch messages when ticket is selected
+  useEffect(() => {
+    if (!selectedTicket) return;
+
     const messagesQuery = query(
       collection(db, 'messages'),
-      where('ticketId', '==', ticketId),
+      where('ticketId', '==', selectedTicket.id),
       orderBy('timestamp', 'asc')
     );
 
@@ -72,31 +83,93 @@ export default function AdminChatBox() {
       const messagesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Message[];
+      })) as ChatMessage[];
       
       setMessages(messagesData);
       
+      // Mark user messages as read
+      messagesData.forEach(async (message) => {
+        if (!message.isAdmin && !message.read) {
+          await updateDoc(doc(db, 'messages', message.id), {
+            read: true
+          });
+        }
+      });
+
       // Auto-scroll to bottom
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
     });
 
-    return unsubscribe;
-  }, []);
+    return () => unsubscribe();
+  }, [selectedTicket]);
 
-  // Now use the functions in useEffect hooks
-  useEffect(() => {
-    if (isOpen) {
-      fetchTickets();
-    }
-  }, [isOpen, fetchTickets]);
+  const handleTyping = async () => {
+    if (!admin || !selectedTicket) return;
 
-  useEffect(() => {
-    if (selectedTicket) {
-      fetchMessages(selectedTicket.id);
+    await updateDoc(doc(db, 'typingIndicators', selectedTicket.id), {
+      ticketId: selectedTicket.id,
+      userId: admin.uid,
+      userType: 'admin',
+      isTyping: true,
+      timestamp: serverTimestamp()
+    });
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
     }
-  }, [selectedTicket, fetchMessages]);
+
+    typingTimeoutRef.current = setTimeout(async () => {
+      await updateDoc(doc(db, 'typingIndicators', selectedTicket.id), {
+        isTyping: false,
+        timestamp: serverTimestamp()
+      });
+    }, 2000);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!admin || !selectedTicket) return;
+
+    setUploading(true);
+    try {
+      const fileRef = ref(storage, `chat-files/${selectedTicket.id}/${Date.now()}-${file.name}`);
+      const snapshot = await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const messageData = {
+        text: '',
+        userId: admin.uid,
+        userName: 'Admin',
+        userEmail: admin.email,
+        timestamp: Timestamp.now(),
+        isAdmin: true,
+        ticketId: selectedTicket.id,
+        type: file.type.startsWith('image/') ? 'image' : 'file',
+        fileUrl: downloadURL,
+        fileName: file.name,
+        read: false
+      }
+
+      await addDoc(collection(db, 'messages'), messageData);
+      
+      await updateDoc(doc(db, 'tickets', selectedTicket.id), {
+        updatedAt: Timestamp.now()
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+      e.target.value = '';
+    }
+  };
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedTicket || !admin) return;
@@ -109,14 +182,22 @@ export default function AdminChatBox() {
         userEmail: admin.email,
         timestamp: Timestamp.now(),
         isAdmin: true,
-        ticketId: selectedTicket.id
+        ticketId: selectedTicket.id,
+        type: 'text' as const,
+        read: false
       };
 
       await addDoc(collection(db, 'messages'), messageData);
       
-      // Update ticket timestamp
       await updateDoc(doc(db, 'tickets', selectedTicket.id), {
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
+        status: 'in-progress'
+      });
+
+      // Clear typing indicator
+      await updateDoc(doc(db, 'typingIndicators', selectedTicket.id), {
+        isTyping: false,
+        timestamp: serverTimestamp()
       });
 
       setNewMessage('');
@@ -141,10 +222,25 @@ export default function AdminChatBox() {
     }
   };
 
-  const formatTime = (timestamp: Timestamp) => {
+  const formatTime = (timestamp: unknown) => {
     if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date();
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    try {
+      let date: Date;
+      
+      if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+        date = (timestamp as { toDate: () => Date }).toDate();
+      } else if (timestamp instanceof Date) {
+        date = timestamp;
+      } else {
+        date = new Date(timestamp as string);
+      }
+      
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '';
+    }
   };
 
   return (
@@ -203,6 +299,8 @@ export default function AdminChatBox() {
                         <span className={`text-xs px-2 py-1 rounded-full ${
                           ticket.status === 'open' 
                             ? 'bg-green-100 text-green-800' 
+                            : ticket.status === 'in-progress'
+                            ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {ticket.status}
@@ -226,7 +324,7 @@ export default function AdminChatBox() {
                   </div>
                   <button
                     onClick={() => closeTicket(selectedTicket.id)}
-                    className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                    className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 transition-colors"
                   >
                     Close Ticket
                   </button>
@@ -245,13 +343,43 @@ export default function AdminChatBox() {
                             : 'bg-gray-200 text-gray-800'
                         }`}
                       >
-                        <p className="text-sm">{message.text}</p>
+                        {message.type === 'image' ? (
+                          <img
+                            src={message.fileUrl}
+                            alt="Shared image"
+                            className="max-w-full h-auto rounded mb-1"
+                          />
+                        ) : message.type === 'file' ? (
+                          <a
+                            href={message.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center text-blue-600 hover:underline mb-1"
+                          >
+                            📎 {message.fileName}
+                          </a>
+                        ) : (
+                          <p className="text-sm">{message.text}</p>
+                        )}
                         <p className="text-xs opacity-70 mt-1">
                           {formatTime(message.timestamp)}
                         </p>
                       </div>
                     </div>
                   ))}
+                  
+                  {/* Typing Indicator */}
+                  {isTyping && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-200 text-gray-800 p-3 rounded-lg">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
               </div>
@@ -260,9 +388,27 @@ export default function AdminChatBox() {
               <div className="p-4 border-t border-gray-200">
                 <div className="flex space-x-2">
                   <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                  >
+                    {uploading ? '📤' : '📎'}
+                  </button>
+                  <input
                     type="text"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      handleTyping();
+                    }}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -275,7 +421,7 @@ export default function AdminChatBox() {
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim()}
-                    className="bg-[#FF385C] text-white px-4 py-2 rounded-lg hover:bg-[#E31C5F] disabled:opacity-50"
+                    className="bg-[#FF385C] text-white px-4 py-2 rounded-lg hover:bg-[#E31C5F] disabled:opacity-50 transition-colors"
                   >
                     Send
                   </button>
