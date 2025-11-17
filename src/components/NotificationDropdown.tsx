@@ -119,7 +119,7 @@ export default function NotificationDropdown({ isOpen, onClose }: NotificationDr
         {notifications.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
             <p>No notifications yet</p>
-            <p className="text-sm mt-1">We'll notify you when something important happens</p>
+            <p className="text-sm mt-1">We&apos;ll notify you when something important happens</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
