@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 
 export default function AdminNavbar() {
-  const { admin, logout } = useAdmin(); // Now using 'admin' again
+  const { admin, logout } = useAdmin();
   const pathname = usePathname();
 
   const handleLogout = async () => {
@@ -19,11 +19,11 @@ export default function AdminNavbar() {
 
   const navigation = [
     { name: 'Dashboard', href: '/traceback-admin/dashboard' },
-    { name: 'Manage Items', href: '/traceback-admin/items' },
-    { name: 'Support Tickets', href: '/traceback-admin/tickets' },
-    { name: 'User Management', href: '/traceback-admin/users' },
-    { name: 'CCTV Management', href: '/traceback-admin/cctv' },
-    { name: 'Claim Requests', href: '/traceback-admin/claims' },
+    { name: 'Items', href: '/traceback-admin/items' },
+    { name: 'Tickets', href: '/traceback-admin/tickets' },
+    { name: 'Users', href: '/traceback-admin/users' },
+    { name: 'CCTV', href: '/traceback-admin/cctv' },
+    { name: 'Claims', href: '/traceback-admin/claims' },
   ];
 
   return (
@@ -68,13 +68,13 @@ export default function AdminNavbar() {
               href="/"
               className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              View Main Site
+              Main Site
             </Link>
             <button
               onClick={handleLogout}
-              className="bg-[#FF385C] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#E31C5F]"
+              className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              Admin Logout
+              Logout
             </button>
           </div>
         </div>
