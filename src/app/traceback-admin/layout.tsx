@@ -90,20 +90,19 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading) {
-      // Redirect to login if not authenticated as admin and not on login page
-      if (!isAuthenticated && pathname !== '/traceback-admin/login') {
-        console.log('Not authenticated as admin, redirecting to login');
-        router.push('/traceback-admin/login');
-        return;
-      }
-      
-      // Redirect to dashboard if authenticated as admin and on login page
-      if (isAuthenticated && pathname === '/traceback-admin/login') {
-        console.log('Already authenticated as admin, redirecting to dashboard');
-        router.push('/traceback-admin/dashboard');
-        return;
-      }
+    if (loading) return;
+
+    // Redirect logic - this is acceptable for route protection
+    if (!isAuthenticated && pathname !== '/traceback-admin/login') {
+      console.log('AdminLayout: Not authenticated, redirecting to login');
+      router.push('/traceback-admin/login');
+      return;
+    }
+    
+    if (isAuthenticated && pathname === '/traceback-admin/login') {
+      console.log('AdminLayout: Already authenticated, redirecting to dashboard');
+      router.push('/traceback-admin/dashboard');
+      return;
     }
   }, [loading, isAuthenticated, router, pathname]);
 
@@ -119,7 +118,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If not authenticated as admin and not on login page, show redirect
+  // If not authenticated as admin and not on login page, show redirect (fallback)
   if (!isAuthenticated && pathname !== '/traceback-admin/login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

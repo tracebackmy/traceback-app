@@ -24,17 +24,24 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    console.log('AdminProvider: Setting up auth state listener');
+    
     const unsubscribe = onAdminAuthStateChange((user, isAdmin) => {
+      console.log('AdminProvider: Auth state update', { user: user?.email, isAdmin });
       setAdmin(user);
       setIsAuthenticated(isAdmin);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log('AdminProvider: Cleaning up auth state listener');
+      unsubscribe();
+    };
   }, []);
 
   const logout = async () => {
     try {
+      console.log('AdminProvider: Logging out admin');
       await adminSignOut();
       setAdmin(null);
       setIsAuthenticated(false);
@@ -43,13 +50,21 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const value = {
+    admin, 
+    loading, 
+    logout,
+    isAuthenticated 
+  };
+
+  console.log('AdminProvider: Rendering with state', { 
+    admin: admin?.email, 
+    loading, 
+    isAuthenticated 
+  });
+
   return (
-    <AdminContext.Provider value={{ 
-      admin, 
-      loading, 
-      logout,
-      isAuthenticated 
-    }}>
+    <AdminContext.Provider value={value}>
       {children}
     </AdminContext.Provider>
   );
