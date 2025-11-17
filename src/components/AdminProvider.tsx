@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { onAdminAuthStateChange, adminSignOut, isAdminAuthenticated, getCurrentAdmin } from '@/lib/admin-auth';
+import { onAdminAuthStateChange, adminSignOut, checkAdminStatus } from '@/lib/admin-auth';
 
 interface AdminContextType {
   admin: User | null;
@@ -21,10 +21,12 @@ const AdminContext = createContext<AdminContextType>({
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [admin, setAdmin] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAdminAuthStateChange((user) => {
+    const unsubscribe = onAdminAuthStateChange((user, isAdmin) => {
       setAdmin(user);
+      setIsAuthenticated(isAdmin);
       setLoading(false);
     });
 
@@ -35,12 +37,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       await adminSignOut();
       setAdmin(null);
+      setIsAuthenticated(false);
     } catch (error) {
       console.error('Admin logout error:', error);
     }
   };
-
-  const isAuthenticated = isAdminAuthenticated();
 
   return (
     <AdminContext.Provider value={{ 
@@ -54,4 +55,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const useAdmin = () => useContext(AdminContext);
+// Make sure this export is named correctly
+export const useAdmin = () => {
+  const context = useContext(AdminContext);
+  if (context === undefined) {
+    throw new Error('useAdmin must be used within an AdminProvider');
+  }
+  return context;
+};
+
+// Export the context itself if needed
+export default AdminProvider;

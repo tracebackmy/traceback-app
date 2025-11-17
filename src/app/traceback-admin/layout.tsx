@@ -90,14 +90,20 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Redirect to login if not authenticated as admin and not on login page
-    if (!loading && !isAuthenticated && pathname !== '/traceback-admin/login') {
-      router.push('/traceback-admin/login');
-    }
-    
-    // Redirect to dashboard if authenticated as admin and on login page
-    if (!loading && isAuthenticated && pathname === '/traceback-admin/login') {
-      router.push('/traceback-admin/dashboard');
+    if (!loading) {
+      // Redirect to login if not authenticated as admin and not on login page
+      if (!isAuthenticated && pathname !== '/traceback-admin/login') {
+        console.log('Not authenticated as admin, redirecting to login');
+        router.push('/traceback-admin/login');
+        return;
+      }
+      
+      // Redirect to dashboard if authenticated as admin and on login page
+      if (isAuthenticated && pathname === '/traceback-admin/login') {
+        console.log('Already authenticated as admin, redirecting to dashboard');
+        router.push('/traceback-admin/dashboard');
+        return;
+      }
     }
   }, [loading, isAuthenticated, router, pathname]);
 

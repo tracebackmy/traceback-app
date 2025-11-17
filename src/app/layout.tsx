@@ -1,7 +1,7 @@
 import { AuthProvider } from '@/components/AuthProvider'
 import ChatBoxComponent from '@/components/ChatBox'
 import Navbar from '@/components/Navbar'
-import './globals.css' // ⚠️ THIS IS CRITICAL - MAKES ALL UI WORK ⚠️
+import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 
