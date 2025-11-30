@@ -5,10 +5,8 @@ import { User, onAuthStateChanged, signOut, sendEmailVerification } from 'fireba
 import { auth } from '@/lib/firebase'
 import { useRouter, usePathname } from 'next/navigation'
 import { checkAdminStatus } from '@/lib/admin-auth' 
-// CRITICAL FIX: Import UserRole from the dedicated type file
 import { UserRole } from '@/types/admin' 
 
-// Define constants for routing
 const PROTECTED_USER_PATHS = ['/profile', '/report', '/dashboard']; 
 const ADMIN_BASE_PATH = '/traceback-admin';
 const VERIFY_EMAIL_PATH = '/auth/verify-email';
@@ -46,50 +44,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       
       if (currentUser) {
-        
-        // 1. CRITICAL: Role Check
         const userRole = await checkAdminStatus(currentUser);
         setRole(userRole);
         
         if (userRole === 'admin') {
-          // A. ADMIN DETECTED
-          setUser(null); 
-          setLoading(false);
+          // ADMIN LOGIC: Block from user views
+          setUser(null); // Ensure user is null so protected routes trigger standard 'not logged in' behavior or we redirect
           
           if (!pathname.startsWith(ADMIN_BASE_PATH)) {
-            router.push(`${ADMIN_BASE_PATH}/dashboard`);
+            // Redirect to admin dashboard immediately
+            router.replace(`${ADMIN_BASE_PATH}/dashboard`);
+            // Keep loading true while redirecting to prevent content flash
+            return; 
           }
+          
+          // If we are somehow rendering AuthProvider inside admin layout (should be separate layouts)
+          // We still set loading false to avoid infinite load
+          setLoading(false);
           return;
         } 
         
-        // B. REGULAR USER DETECTED ('user' role)
-        
-        // Block regular users from admin routes
+        // REGULAR USER LOGIC
         if (pathname.startsWith(ADMIN_BASE_PATH)) {
-            router.push('/');
+            router.replace('/'); // Kick user out of admin area
             return;
         }
 
-        // Handle Email Verification Flow
+        // Email Verification Check
         const isVerified = currentUser.emailVerified;
-        
         if (!isVerified && PROTECTED_USER_PATHS.includes(pathname)) {
             router.push(VERIFY_EMAIL_PATH);
         } else if (isVerified && pathname === VERIFY_EMAIL_PATH) {
             router.push('/dashboard');
         }
 
-        // Set user for regular users only
         setUser(currentUser);
       
       } else {
-        // 2. NO USER LOGGED IN
-        
-        // Redirect if unauthenticated user hits a protected path
+        // NO USER LOGGED IN
         if (PROTECTED_USER_PATHS.includes(pathname) || pathname === VERIFY_EMAIL_PATH) {
           router.push('/auth/login'); 
         }
-        
         setUser(null);
         setRole(null);
       }
@@ -122,7 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isEmailVerified = user?.emailVerified || false
   const uid = user?.uid || null;
   const email = user?.email || null;
-
 
   return (
     <AuthContext.Provider value={{ 
