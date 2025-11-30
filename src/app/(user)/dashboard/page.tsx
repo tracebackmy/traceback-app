@@ -1,28 +1,39 @@
-
 'use client';
 
 import React, { useState } from 'react';
-import { db } from '@/services/mockFirebase';
 import Link from 'next/link';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useData } from '@/contexts/DataContext';
 import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
-  const { user, refreshUser } = useAuth();
-  const { myItems, myClaims, myTickets, loadingData } = useData();
+  const { user } = useAuth(); // Now uses real Firebase Auth
+  const { myItems, myClaims, myTickets, loadingData, refreshData } = useData(); // Now fetches from API
   const router = useRouter();
   const [verifying, setVerifying] = useState(false);
 
-  // Filter lost items from myItems
+  // Filter lost items from the API data
   const lostItems = myItems.filter(i => i.itemType === 'lost');
 
   const handleVerify = async () => {
     if(!user) return;
     setVerifying(true);
     try {
-        await db.verifyCurrentUser();
-        refreshUser();
+        // Call the new API route
+        const response = await fetch('/api/users/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid })
+        });
+
+        if (!response.ok) throw new Error('Verification failed');
+
+        // Refresh data to reflect changes
+        await refreshData();
+        // Force a page reload to update AuthContext if strictly needed, 
+        // or rely on real-time listener in AuthContext (Step 1.1)
+        window.location.reload(); 
+        
         alert("Account verified successfully!");
     } catch(e) {
         console.error("Verification failed", e);

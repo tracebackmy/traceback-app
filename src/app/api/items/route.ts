@@ -6,10 +6,32 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as 'lost' | 'found' | undefined;
     const status = searchParams.get('status') || undefined;
+    const userId = searchParams.get('userId') || undefined;
+    const search = searchParams.get('search') || undefined;
+    
+    // Pagination params
+    const lastId = searchParams.get('lastId') || undefined;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 12;
 
-    const items = await FirestoreService.getItems({ type, status });
-    return NextResponse.json({ success: true, data: items });
+    const result = await FirestoreService.getItems({ 
+      type, 
+      status, 
+      userId, 
+      search, 
+      lastId, 
+      limit 
+    });
+    
+    return NextResponse.json({ 
+      success: true, 
+      data: result.items,
+      pagination: {
+        lastId: result.lastId,
+        hasMore: !!result.lastId
+      }
+    });
   } catch (error) {
+    console.error("API Error:", error);
     return NextResponse.json({ success: false, error: 'Failed to fetch items' }, { status: 500 });
   }
 }
@@ -17,7 +39,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // In a real implementation, you would validate the session/token here
     const newItem = await FirestoreService.createItem(body);
     return NextResponse.json({ success: true, data: newItem });
   } catch (error) {

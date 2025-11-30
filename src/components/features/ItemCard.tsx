@@ -14,7 +14,7 @@ const ItemCard = React.memo(({ item }: ItemCardProps) => {
     <Link href={`/items/${item.id}`} className="group block h-full">
       <article className="bg-white border border-border rounded-2xl overflow-hidden shadow-soft transition-transform duration-200 group-hover:-translate-y-1 h-full flex flex-col">
         <div className="h-44 bg-gray-100 relative overflow-hidden">
-          {item.imageUrls.length > 0 ? (
+          {item.imageUrls && item.imageUrls.length > 0 ? (
             <Image 
               src={item.imageUrls[0]} 
               alt={item.title} 
@@ -48,7 +48,8 @@ const ItemCard = React.memo(({ item }: ItemCardProps) => {
           
           <div className="mt-auto pt-3 border-t border-gray-100 flex items-center text-xs text-muted font-medium">
             <svg className="flex-shrink-0 mr-1.5 h-4 w-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            {item.stationId}
+            {/* Safe access with fallback */}
+            {item.stationId || 'Unknown Location'} 
           </div>
         </div>
       </article>

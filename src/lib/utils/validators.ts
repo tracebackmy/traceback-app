@@ -1,5 +1,5 @@
-
 import { FILE_LIMITS } from './constants';
+import DOMPurify from 'isomorphic-dompurify';
 
 export const validateEmail = (email: string): boolean => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,7 +21,21 @@ export const validateFile = (file: File): { valid: boolean; error?: string } => 
   return { valid: true };
 };
 
+/**
+ * Sanitizes input text to remove malicious scripts.
+ * Returns the clean string.
+ */
+export const sanitizeInput = (text: string): string => {
+  return DOMPurify.sanitize(text).trim();
+};
+
+/**
+ * Checks if the input contained malicious content.
+ * Useful for form validation rejection.
+ */
 export const isMaliciousInput = (text: string): boolean => {
-  // Basic XSS check
-  return /<script\b[^>]*>([\s\S]*?)<\/script>/gm.test(text);
+  const clean = DOMPurify.sanitize(text);
+  // If sanitization removed content (stripping tags), it might be malicious or just HTML
+  // For strict text-only fields, any HTML tag is considered "malicious" or invalid.
+  return clean !== text;
 };

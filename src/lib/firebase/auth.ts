@@ -1,4 +1,3 @@
-
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -7,17 +6,30 @@ import {
   User as FirebaseUser,
   updateProfile
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './config';
 import { SystemUser, UserRole } from '@/types';
 
-// Map Firebase User to SystemUser
+// Helper to map Firebase User to your SystemUser type
 const mapUser = async (user: FirebaseUser): Promise<SystemUser | null> => {
-  const userDoc = await getDoc(doc(db, 'users', user.uid));
-  if (userDoc.exists()) {
-    return userDoc.data() as SystemUser;
+  try {
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    if (userDoc.exists()) {
+      return userDoc.data() as SystemUser;
+    }
+    // Fallback if user is in Auth but not Firestore (shouldn't happen in normal flow)
+    return {
+      uid: user.uid,
+      email: user.email!,
+      role: 'user', // Default role
+      displayName: user.displayName || 'User',
+      isVerified: false,
+      createdAt: Date.now(),
+    };
+  } catch (error) {
+    console.error("Error mapping user:", error);
+    return null;
   }
-  return null;
 };
 
 export const AuthService = {
@@ -31,13 +43,13 @@ export const AuthService = {
   signUp: async (email: string, pass: string, name: string, role: UserRole = 'user') => {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     
-    // Create User Document
+    // Create User Document in Firestore
     const newUser: SystemUser = {
       uid: cred.user.uid,
       email: cred.user.email!,
       role,
       displayName: name,
-      isVerified: false, // Default to false
+      isVerified: false, 
       createdAt: Date.now(),
     };
 

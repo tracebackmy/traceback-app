@@ -1,9 +1,7 @@
-
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { db } from '@/services/mockFirebase';
 import { Item, ClaimRequest, Ticket } from '@/types';
 
 interface DataContextType {
@@ -11,7 +9,8 @@ interface DataContextType {
   myClaims: ClaimRequest[];
   myTickets: Ticket[];
   loadingData: boolean;
-  refreshData: () => void;
+  error: string | null;
+  refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -19,7 +18,8 @@ const DataContext = createContext<DataContextType>({
   myClaims: [],
   myTickets: [],
   loadingData: true,
-  refreshData: () => {},
+  error: null,
+  refreshData: async () => {},
 });
 
 export const useData = () => useContext(DataContext);
@@ -30,8 +30,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [myClaims, setMyClaims] = useState<ClaimRequest[]>([]);
   const [myTickets, setMyTickets] = useState<Ticket[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!user) {
       setMyItems([]);
       setMyClaims([]);
@@ -41,34 +42,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setLoadingData(true);
+    setError(null);
 
-    // Subscribe to real-time data
-    const unsubItems = db.subscribeToUserItems(user.uid, (items) => {
-        setMyItems(items);
-        setLoadingData(false);
-    });
+    try {
+      // Fetch all user-related data in parallel
+      const [itemsRes, claimsRes, ticketsRes] = await Promise.all([
+        fetch(`/api/items?userId=${user.uid}`),
+        fetch(`/api/claims?userId=${user.uid}`),
+        fetch(`/api/tickets?userId=${user.uid}`) // Ensure GET handler exists for this
+      ]);
 
-    const unsubClaims = db.subscribeToUserClaims(user.uid, (claims) => {
-        setMyClaims(claims);
-    });
+      if (!itemsRes.ok || !claimsRes.ok || !ticketsRes.ok) {
+        throw new Error('Failed to fetch user data');
+      }
 
-    const unsubTickets = db.subscribeToUserTickets(user.uid, (tickets) => {
-        setMyTickets(tickets);
-    });
+      const itemsData = await itemsRes.json();
+      const claimsData = await claimsRes.json();
+      const ticketsData = await ticketsRes.json();
 
-    return () => {
-        unsubItems();
-        unsubClaims();
-        unsubTickets();
-    };
+      setMyItems(itemsData.data || []);
+      setMyClaims(claimsData.data || []);
+      setMyTickets(ticketsData.data || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Could not load your data. Please try refreshing.');
+    } finally {
+      setLoadingData(false);
+    }
   }, [user]);
 
-  const refreshData = () => {
-     // Mock manual refresh trigger if needed, though listeners handle it
-  };
+  // Initial fetch when user changes
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
-    <DataContext.Provider value={{ myItems, myClaims, myTickets, loadingData, refreshData }}>
+    <DataContext.Provider value={{ 
+      myItems, 
+      myClaims, 
+      myTickets, 
+      loadingData, 
+      error,
+      refreshData: fetchData 
+    }}>
       {children}
     </DataContext.Provider>
   );

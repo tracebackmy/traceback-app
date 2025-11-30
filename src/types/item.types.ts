@@ -1,4 +1,3 @@
-
 export type ItemType = 'lost' | 'found';
 
 export enum ItemStatus {
@@ -31,12 +30,12 @@ export interface Item {
   itemType: ItemType;
   title: string;
   description: string;
-  category: string; // Keeping as string to allow flexibility, but UI uses ItemCategory values
-  stationId: string;
-  mode: 'MRT' | 'LRT' | 'KTM'; // keeping string literal union to match existing usages easier
-  line: string;
+  category: string;
+  stationId?: string; // Made optional to handle legacy data
+  mode?: 'MRT' | 'LRT' | 'KTM'; // Made optional
+  line?: string; // Made optional
   keywords: string[];
-  status: 'pending_verification' | 'listed' | 'reported' | 'match_found' | 'resolved' | 'closed'; // String literals for backward compat
+  status: ItemStatus | string; // Allow string fallback for raw firestore data
   imageUrls: string[];
   aiMatchScore?: number;
   createdAt: number;

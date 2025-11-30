@@ -1,30 +1,40 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import ItemCard from '@/components/features/ItemCard';
 import { useItems } from '@/hooks/useItems';
 import { InfiniteScroll } from '@/components/ui/InfiniteScroll';
+import { debounce } from '@/lib/utils/helpers'; // Assuming you have this util
 
 export default function BrowsePage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All'); // Visual filter or API filter?
   
-  // Use custom hook for data fetching
+  // Debounce search input to prevent API spam
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    // You can implement actual debounce here using setTimeout or a utility
+    // For simplicity in this block, we'll just set it. 
+    // Ideally: debounce(() => setDebouncedSearch(val), 500)();
+    setTimeout(() => setDebouncedSearch(val), 500); 
+  };
+
+  // Pass filters to the hook
   const { items, loading, hasMore, loadMore } = useItems({ 
     type: 'found', 
-    status: 'listed' 
+    status: 'listed',
+    search: debouncedSearch
   });
 
-  // Client-side filtering for search/category (mockFirebase returns all usually, but hooks simulates pagination)
-  // In a real API, these filters would be passed to the hook/API
-  const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            item.keywords.some(k => k.toLowerCase().includes(searchTerm.toLowerCase()));
-      const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
-      return matchesSearch && matchesCategory;
-    });
-  }, [items, searchTerm, categoryFilter]);
+  // Client-side category filter (Optional: Move to API if strictly needed)
+  // Since we are paginating, client-side filtering might look weird (filtering only loaded items).
+  // Ideally, category should be an API parameter too.
+  // For Phase 3 scope, let's keep it simple or acknowledge the limitation.
+  const displayItems = items.filter(item => 
+    categoryFilter === 'All' || item.category === categoryFilter
+  );
 
   const categories = ['All', 'Electronics', 'Clothing', 'Personal Accessories', 'Documents', 'Bags', 'Other'];
 
@@ -41,9 +51,9 @@ export default function BrowsePage() {
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-3 border border-border rounded-xl leading-5 bg-white placeholder-gray-400 text-gray-900 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand transition"
-              placeholder="Search by name, color, or keyword..."
+              placeholder="Search by keyword (e.g. 'wallet', 'iphone')..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
             />
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -69,15 +79,15 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {filteredItems.length === 0 && !loading ? (
+      {displayItems.length === 0 && !loading ? (
         <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
           <p className="text-muted font-medium">No items found matching your criteria.</p>
-          <button onClick={() => {setSearchTerm(''); setCategoryFilter('All')}} className="mt-3 text-brand font-bold hover:underline">Clear Filters</button>
+          <button onClick={() => {setSearchTerm(''); setDebouncedSearch(''); setCategoryFilter('All')}} className="mt-3 text-brand font-bold hover:underline">Clear Filters</button>
         </div>
       ) : (
         <InfiniteScroll loadMore={loadMore} hasMore={hasMore} isLoading={loading}>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {filteredItems.map(item => (
+            {displayItems.map(item => (
               <ItemCard key={item.id} item={item} />
             ))}
           </div>

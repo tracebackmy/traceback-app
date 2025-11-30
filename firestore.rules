@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- Helper Functions ---
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Note: This requires the 'role' to be set in Custom Claims OR looking up the user doc.
+    // Looking up the user doc costs a read. Custom claims are cheaper but harder to setup in this phase.
+    // We will use a lookup for now.
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- Rules ---
+
+    // USERS: Users can read/write their own profile. Admins can read all.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // ITEMS: 
+    // - Read: Public (anyone can browse items)
+    // - Create: Authenticated users only
+    // - Update: Owner of the item or Admin
+    match /items/{itemId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Delete: Admin only (soft delete preferred via update status)
+      allow delete: if isAdmin();
+    }
+
+    // CLAIMS:
+    // - Create: Authenticated users
+    // - Read: The user who made the claim OR Admin
+    // - Update: Admin only (to approve/reject)
+    match /claims/{claimId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+    }
+
+    // TICKETS:
+    // - Create: Authenticated users
+    // - Read/Update: The ticket owner OR Admin
+    match /tickets/{ticketId} {
+      allow create: if isAuthenticated();
+      allow read, update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // CCTV: Admin only
+    match /cctv/{clipId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // CAMERAS: Admin only
+    match /cameras/{camId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

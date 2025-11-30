@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '@/services/mockFirebase';
 import { Item } from '@/types';
 import { logger } from '@/lib/utils/logger';
 
@@ -7,57 +6,100 @@ interface UseItemsOptions {
   type?: 'lost' | 'found';
   status?: string;
   limit?: number;
+  search?: string;
 }
 
-export const useItems = ({ type, status, limit = 12 }: UseItemsOptions = {}) => {
+interface ApiResponse {
+  success: boolean;
+  data: Item[];
+  pagination?: {
+    lastId: string | null;
+    hasMore: boolean;
+  };
+  error?: string;
+}
+
+export const useItems = ({ type, status, search, limit = 8 }: UseItemsOptions = {}) => {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastId, setLastId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
 
-  const fetchItems = useCallback(async (reset = false) => {
+  // Fetch function (supports both initial load and pagination)
+  const fetchItems = useCallback(async (isLoadMore = false) => {
     try {
-      setLoading(true);
-      const allItems = await db.getItems({ type, status });
-      
-      // Simulate server-side pagination since mockFirebase returns all
-      const startIndex = reset ? 0 : (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedItems = allItems.slice(0, endIndex); // Accumulate items for infinite scroll simulation
-
-      if (reset) {
-        setItems(paginatedItems);
-        setPage(1);
+      if (isLoadMore) {
+        setLoadingMore(true);
       } else {
-        setItems(paginatedItems);
+        setLoading(true);
+      }
+      
+      setError(null);
+
+      const params = new URLSearchParams();
+      if (type) params.append('type', type);
+      if (status) params.append('status', status);
+      if (search) params.append('search', search);
+      params.append('limit', limit.toString());
+      
+      // Use the cursor if loading more
+      if (isLoadMore && lastId) {
+        params.append('lastId', lastId);
       }
 
-      setHasMore(endIndex < allItems.length);
-      setLoading(false);
+      const response = await fetch(`/api/items?${params.toString()}`);
+      const result: ApiResponse = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to fetch items');
+      }
+
+      const newItems = result.data || [];
+      const newLastId = result.pagination?.lastId || null;
+      
+      if (isLoadMore) {
+        setItems(prev => [...prev, ...newItems]);
+      } else {
+        setItems(newItems);
+      }
+
+      setLastId(newLastId);
+      setHasMore(!!newLastId && newItems.length >= limit);
+
     } catch (err) {
       logger.error('Failed to fetch items', err);
       setError('Failed to load items. Please try again.');
+    } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [type, status, limit, page]);
+  }, [type, status, search, limit, lastId]);
 
+  // Initial Fetch (Reset when filters change)
   useEffect(() => {
-    fetchItems(true);
-  }, [type, status]); // Reset when filters change
+    // Reset state before fetching
+    setItems([]);
+    setLastId(null);
+    setHasMore(true);
+    fetchItems(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, status, search]); // Re-run when these filters change
 
   const loadMore = () => {
-    if (!loading && hasMore) {
-      setPage(prev => prev + 1);
+    if (!loading && !loadingMore && hasMore) {
+      fetchItems(true);
     }
   };
 
-  // Trigger effect when page changes to load more
-  useEffect(() => {
-    if (page > 1) {
-      fetchItems();
-    }
-  }, [page, fetchItems]);
-
-  return { items, loading, error, hasMore, loadMore, refresh: () => fetchItems(true) };
+  return { 
+    items, 
+    loading, 
+    loadingMore,
+    error, 
+    hasMore, 
+    loadMore, 
+    refresh: () => fetchItems(false) 
+  };
 };

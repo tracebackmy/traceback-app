@@ -1,10 +1,18 @@
 'use server';
 
 import { FirestoreService } from '@/lib/firebase/firestore';
-import { Item, ItemStatus } from '@/types';
+import { ItemStatus } from '@/types';
 import { revalidatePath } from 'next/cache';
 
-export async function reportLostItem(prevState: any, formData: FormData) {
+// Define the shape of the form state
+export type FormState = {
+  success: boolean;
+  message?: string;
+  itemId?: string;
+  error?: string;
+};
+
+export async function reportLostItem(prevState: FormState, formData: FormData): Promise<FormState> {
   try {
     const rawData = {
       title: formData.get('title') as string,
@@ -13,6 +21,7 @@ export async function reportLostItem(prevState: any, formData: FormData) {
       stationId: formData.get('stationId') as string,
       mode: formData.get('mode') as 'MRT' | 'LRT' | 'KTM',
       userId: formData.get('userId') as string,
+      // Handle the case where imageUrl might be null
       imageUrls: formData.get('imageUrl') ? [formData.get('imageUrl') as string] : [],
       keywords: (formData.get('keywords') as string)?.split(',') || []
     };
@@ -25,7 +34,7 @@ export async function reportLostItem(prevState: any, formData: FormData) {
       ...rawData,
       itemType: 'lost',
       status: ItemStatus.Reported,
-      line: '', // logic to determine line based on station could go here
+      line: '', 
       keywords: rawData.keywords,
       imageUrls: rawData.imageUrls,
       aiMatchScore: 0,
@@ -41,14 +50,24 @@ export async function reportLostItem(prevState: any, formData: FormData) {
   }
 }
 
-export async function registerFoundItem(itemData: Partial<Item>) {
+// Fix strict type error for Partial<Item>
+export async function registerFoundItem(itemData: Record<string, any>) {
   try {
     if (!itemData.title || !itemData.userId) throw new Error("Invalid data");
     
+    // Explicitly cast or validate fields before sending to Firestore
     await FirestoreService.createItem({
-      ...itemData as any,
+      userId: itemData.userId,
       itemType: 'found',
+      title: itemData.title,
+      description: itemData.description || '',
+      category: itemData.category || 'Other',
+      stationId: itemData.stationId || '',
+      mode: itemData.mode,
+      line: itemData.line || '',
+      keywords: itemData.keywords || [],
       status: ItemStatus.Listed,
+      imageUrls: itemData.imageUrls || [],
       createdAt: Date.now(),
       updatedAt: Date.now()
     });

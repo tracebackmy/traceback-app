@@ -1,14 +1,12 @@
-
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { db } from '@/services/mockFirebase';
+import { AuthService } from '@/lib/firebase/auth';
 import { SystemUser } from '@/types';
 
 interface AuthContextType {
   user: SystemUser | null;
   loading: boolean;
-  refreshUser: () => void;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -17,7 +15,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  refreshUser: () => {},
   logout: async () => {},
   isAuthenticated: false,
   isAdmin: false,
@@ -29,25 +26,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<SystemUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshUser = () => {
-    const currentUser = db.getCurrentUser();
-    setUser(currentUser);
-    setLoading(false);
-  };
+  useEffect(() => {
+    // Subscribe to real-time Firebase Auth changes
+    const unsubscribe = AuthService.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
 
   const logout = async () => {
-    await db.logout();
-    setUser(null);
+    try {
+      await AuthService.logout();
+      // State updates automatically via the onAuthStateChanged listener
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
-
-  useEffect(() => {
-    refreshUser();
-  }, []);
 
   const value = {
     user,
     loading,
-    refreshUser,
     logout,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin'
