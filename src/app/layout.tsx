@@ -1,40 +1,36 @@
-import { AuthProvider } from '@/components/AuthProvider'
-import ChatBoxComponent from '@/components/ChatBox'
-import Navbar from '@/components/Navbar'
-import './globals.css'
-import { Inter } from 'next/font/google'
-import { Metadata } from 'next'
 
-const inter = Inter({ subsets: ['latin'] })
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { DataProvider } from '@/contexts/DataContext';
 
-// Set Metadata
-export const metadata: Metadata = {
-  title: 'Traceback - Lost & Found, Reimagined',
-  description: 'Find your lost items in MRT/LRT/KTM stations',
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
+export const metadata = {
+  title: 'TraceBack • Lost & Found, Reimagined',
+  description: 'An intelligent lost and found management system for public transit.',
   icons: {
     icon: '/TRACEBACK.png',
   },
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        {/* AuthProvider wraps the whole app for universal access */}
+      <body className={`${inter.variable} font-sans bg-white text-ink antialiased`}>
         <AuthProvider>
-          {/* Navbar only renders if not on an admin route (check inside Navbar.tsx) */}
-          <Navbar />
-          <main className="min-h-screen bg-gray-50">
-            {children}
-          </main>
-          {/* Global User Chat Button/Box */}
-          <ChatBoxComponent />
+          <NotificationProvider>
+            <DataProvider>
+              {children}
+            </DataProvider>
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>
-  )
+  );
 }
