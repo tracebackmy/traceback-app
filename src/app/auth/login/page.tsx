@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-// FIX: Import FirebaseError directly from firebase/app to avoid conflicts, or use generic Error checks
-import { signInWithEmailAndPassword, User, Auth as firebaseAuth } from 'firebase/auth'
+import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { checkAdminStatus } from '@/lib/admin-auth' 
-// NOTE: FirebaseError is usually handled by checking the .code property on the generic Error type
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -22,32 +20,28 @@ export default function LoginPage() {
 
     try {
       setLoading(true)
-      
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user;
       
-      // CRITICAL: Secondary Role Check AFTER successful authentication
       const userRole = await checkAdminStatus(user);
       
       if (userRole === 'admin') {
-        console.log('🚨 ADMIN detected in user login - signing out and showing error');
         await auth.signOut(); 
         setError('Access Denied. Administrators must use the dedicated admin login page.');
         setLoading(false);
         return;
       }
       
-      console.log('✅ Regular user login successful - going to dashboard');
       router.push('/dashboard')
     } catch (error: unknown) {
       console.error('❌ User login error:', error);
+      // Use basic error checking to avoid import issues
       if (error && typeof error === 'object' && 'code' in error) {
-        // Handle Firebase specific error messages by checking the code
-        const firebaseError = error as { code: string; message: string };
-        if (firebaseError.code === 'auth/invalid-credential' || firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/user-not-found') {
+        const err = error as { code: string };
+        if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
           setError('Invalid email or password.');
         } else {
-          setError('Failed to sign in. Please try again.');
+          setError('Failed to sign in.');
         }
       } else {
         setError('An unexpected error occurred.')
@@ -77,7 +71,6 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          {/* Form fields */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email address

@@ -1,13 +1,13 @@
 import { Timestamp } from 'firebase/firestore';
 
-// Expanded Claim Statuses for Triage Flow
+// Finalized Statuses for Claim Triage
 export type ItemClaimStatus = 
   | 'unclaimed' 
-  | 'claim-submitted'     // New initial state
-  | 'verification-chat'   // New state: Admin requests chat proof
-  | 'approved'
-  | 'rejected'
-  | 'cancelled';
+  | 'claim-submitted'     // Initial state when user submits
+  | 'verification-chat'   // Admin requests chat
+  | 'approved'            // Admin approves
+  | 'rejected'            // Admin rejects
+  | 'cancelled';          // User cancels
 
 export interface ClaimRequest {
   id: string;
@@ -18,21 +18,18 @@ export interface ClaimRequest {
   userPhone?: string;
   claimReason: string;
   proofDescription?: string;
-  status: ItemClaimStatus; // Use the new comprehensive status
+  status: ItemClaimStatus;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   reviewedBy?: string;
   reviewedAt?: Timestamp;
   rejectionReason?: string;
-  
-  // New link to chat/ticket for verification
-  verificationTicketId?: string; 
-  
-  // Link to item data for easier queries
+  // Denormalized Item Data for display
   itemName?: string;
   itemCategory?: string;
   itemStation?: string;
   itemImageUrls?: string[];
+  verificationTicketId?: string;
 }
 
 export interface ClaimFormData {

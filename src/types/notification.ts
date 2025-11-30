@@ -13,20 +13,20 @@ export type NotificationType =
 
 export interface Notification {
   id: string;
-  userId: string; // Target user ID
+  userId: string;
   type: NotificationType;
   title: string;
   message: string;
-  relatedId?: string; // itemId, claimId, ticketId, etc.
+  relatedId?: string;
   read: boolean;
   createdAt: Timestamp;
   data?: {
-    // Additional context data
     itemName?: string;
     claimId?: string;
     ticketId?: string;
     adminName?: string;
     status?: string;
+    userName?: string; // Fixed: Added userName to support admin notifications
   };
 }
 
