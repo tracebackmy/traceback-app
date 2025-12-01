@@ -21,7 +21,9 @@ export default function CCTVViewer({
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const detectionIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  
+  // FIX: Initialize with null to satisfy TypeScript
+  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Move drawDetectionBoxes to the top to fix the access-before-declaration error
   const drawDetectionBoxes = useCallback((objects: DetectedObject[]) => {
