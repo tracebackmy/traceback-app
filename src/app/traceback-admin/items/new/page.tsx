@@ -11,11 +11,10 @@ interface NewItemForm {
   title: string;
   description: string;
   category: string;
-  type: 'lost' | 'found';
   stationId: string;
   mode: string;
   line: string;
-  contactPreference: 'email' | 'phone';
+  // Type is hardcoded to 'found'
 }
 
 const categories = [
@@ -34,11 +33,9 @@ export default function NewItemPage() {
     title: '',
     description: '',
     category: '',
-    type: 'found',
     stationId: '',
     mode: '',
     line: '',
-    contactPreference: 'email'
   });
 
   const handleInputChange = (
@@ -51,7 +48,7 @@ export default function NewItemPage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newImages = Array.from(e.target.files);
-      setImages(prev => [...prev, ...newImages].slice(0, 3)); // Limit to 3 images
+      setImages(prev => [...prev, ...newImages].slice(0, 3)); 
     }
   };
 
@@ -81,12 +78,14 @@ export default function NewItemPage() {
 
       const itemData = {
         ...formData,
+        type: 'found', // Strictly 'found'
         imageUrls,
-        status: 'open' as const,
-        claimStatus: 'unclaimed' as const,
+        status: 'open',
+        claimStatus: 'unclaimed',
         userId: 'admin',
         userEmail: admin.email,
-        userName: 'Admin',
+        userName: 'System Admin',
+        contactPreference: 'email',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };
@@ -105,43 +104,13 @@ export default function NewItemPage() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Add New Item</h1>
-          <p className="text-gray-600 mt-2">Add a new lost or found item to the system</p>
+          <h1 className="text-3xl font-bold text-gray-900">Register Found Item</h1>
+          <p className="text-gray-600 mt-2">Log an item found at a station into the system inventory.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Form fields similar to your report page */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type *
-              </label>
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="type"
-                    value="lost"
-                    checked={formData.type === 'lost'}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-[#FF385C] focus:ring-[#FF385C] border-gray-300"
-                  />
-                  <span className="ml-2 text-gray-700">Lost Item</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="type"
-                    value="found"
-                    checked={formData.type === 'found'}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-[#FF385C] focus:ring-[#FF385C] border-gray-300"
-                  />
-                  <span className="ml-2 text-gray-700">Found Item</span>
-                </label>
-              </div>
-            </div>
-
+            
             <div className="md:col-span-2">
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
                 Item Title *
@@ -154,7 +123,7 @@ export default function NewItemPage() {
                 onChange={handleInputChange}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
-                placeholder="e.g., Black Backpack, iPhone 13"
+                placeholder="e.g., Blue Umbrella"
               />
             </div>
 
@@ -207,13 +176,13 @@ export default function NewItemPage() {
                 value={formData.line}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
-                placeholder="e.g., Kajang Line"
+                placeholder="e.g., Kelana Jaya Line"
               />
             </div>
 
             <div>
               <label htmlFor="stationId" className="block text-sm font-medium text-gray-700 mb-2">
-                Station *
+                Found At (Station) *
               </label>
               <input
                 type="text"
@@ -239,20 +208,20 @@ export default function NewItemPage() {
                 rows={4}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-transparent resize-none"
-                placeholder="Describe the item in detail..."
+                placeholder="Describe the item..."
               />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Images (Optional, max 3)
+                Images (Max 3)
               </label>
               <input
                 type="file"
                 multiple
                 accept="image/*"
                 onChange={handleImageUpload}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
               {images.length > 0 && (
                 <div className="mt-3 grid grid-cols-3 gap-3">
@@ -290,7 +259,7 @@ export default function NewItemPage() {
               disabled={loading}
               className="px-6 py-2 bg-[#FF385C] text-white rounded-lg hover:bg-[#E31C5F] disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Item'}
+              {loading ? 'Registering...' : 'Register Item'}
             </button>
           </div>
         </form>
