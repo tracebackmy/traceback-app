@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/components/AuthProvider'
+import { ToastProvider } from '@/components/ToastProvider'
 import ChatBoxComponent from '@/components/ChatBox'
 import Navbar from '@/components/Navbar'
 import './globals.css'
@@ -27,11 +28,13 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <Navbar />
-          <main className="min-h-screen bg-gray-50">
-            {children}
-          </main>
-          <ChatBoxComponent />
+          <ToastProvider>
+            <Navbar />
+            <main className="min-h-screen bg-gray-50">
+              {children}
+            </main>
+            <ChatBoxComponent />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

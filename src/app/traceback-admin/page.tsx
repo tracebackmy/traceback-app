@@ -1,42 +1,21 @@
-import { AuthProvider } from '@/components/AuthProvider'
-import { ToastProvider } from '@/components/ToastProvider'
-import ChatBoxComponent from '@/components/ChatBox'
-import Navbar from '@/components/Navbar'
-import './globals.css'
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+'use client';
 
-const inter = Inter({ subsets: ['latin'] })
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Traceback - Lost & Found',
-  description: 'Find your lost items in MRT/LRT/KTM stations',
-  icons: {
-    icon: '/TRACEBACK.png',
-  },
-}
+export default function TracebackAdminRedirect() {
+  const router = useRouter();
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+  useEffect(() => {
+    router.push('/traceback-admin/login');
+  }, [router]);
+
   return (
-    <html lang="en">
-      <head>
-        <link rel="icon" href="/TRACEBACK.png" />
-      </head>
-      <body className={inter.className}>
-        <AuthProvider>
-          <ToastProvider>
-            <Navbar />
-            <main className="min-h-screen bg-gray-50">
-              {children}
-            </main>
-            <ChatBoxComponent />
-          </ToastProvider>
-        </AuthProvider>
-      </body>
-    </html>
-  )
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF385C] mx-auto"></div>
+        <p className="mt-4 text-gray-600">Redirecting to admin login...</p>
+      </div>
+    </div>
+  );
 }
