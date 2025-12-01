@@ -22,7 +22,6 @@ interface Item {
   createdAt: unknown
 }
 
-// Create a separate component that uses useSearchParams
 function BrowseContent() {
   const searchParams = useSearchParams()
   const initialSearch = searchParams.get('search') || ''
@@ -30,7 +29,7 @@ function BrowseContent() {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
-    type: 'all',
+    // Type filter removed, hardcoded to 'found'
     mode: 'all',
     search: initialSearch
   })
@@ -45,21 +44,19 @@ function BrowseContent() {
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true)
-      let q = query(collection(db, 'items'), orderBy('createdAt', 'desc'))
-
-      // Apply filters
-      const conditions: unknown[] = []
-      if (filters.type !== 'all') {
-        conditions.push(where('type', '==', filters.type))
-      }
+      
+      // STRICTLY FILTER BY TYPE == 'FOUND'
+      const conditions: any[] = [where('type', '==', 'found')]
+      
       if (filters.mode !== 'all') {
         conditions.push(where('mode', '==', filters.mode))
       }
 
-      // Build query with conditions
-      if (conditions.length > 0) {
-        q = query(collection(db, 'items'), ...conditions as [], orderBy('createdAt', 'desc'))
-      }
+      const q = query(
+        collection(db, 'items'), 
+        ...conditions, 
+        orderBy('createdAt', 'desc')
+      )
 
       const querySnapshot = await getDocs(q)
       let fetchedItems = querySnapshot.docs.map(doc => ({
@@ -67,7 +64,6 @@ function BrowseContent() {
         ...doc.data()
       })) as Item[]
 
-      // Apply search filter
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
         fetchedItems = fetchedItems.filter(item =>
@@ -95,23 +91,14 @@ function BrowseContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Browse Items</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Browse Found Items</h1>
+      <p className="text-gray-600 mb-8">
+        Search through items found at stations to see if yours is here.
+      </p>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-            <select
-              value={filters.type}
-              onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
-            >
-              <option value="all">All Types</option>
-              <option value="lost">Lost</option>
-              <option value="found">Found</option>
-            </select>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Mode</label>
             <select
@@ -133,7 +120,7 @@ function BrowseContent() {
               type="text"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              placeholder="Search items..."
+              placeholder="Search keywords..."
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
             />
           </div>
@@ -147,8 +134,7 @@ function BrowseContent() {
             <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 animate-pulse">
               <div className="h-48 bg-gray-200 rounded mb-4"></div>
               <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
             </div>
           ))}
         </div>
@@ -158,79 +144,66 @@ function BrowseContent() {
             <Link
               key={item.id}
               href={`/items/${item.id}`}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 overflow-hidden"
+              className="group bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
             >
-              <div className="h-48 bg-gray-200 flex items-center justify-center">
+              <div className="h-48 bg-gray-100 relative flex items-center justify-center">
                 {item.imageUrls && item.imageUrls.length > 0 ? (
                   <Image
                     src={item.imageUrls[0]}
                     alt={item.title}
-                    width={400}
-                    height={192}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <div className="text-gray-400">No Image</div>
+                  <div className="text-gray-400 flex flex-col items-center">
+                    <span className="text-4xl mb-2">📷</span>
+                    <span className="text-sm">No Image</span>
+                  </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                  {item.title}
-                </h3>
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                  <span className="bg-gray-100 px-2 py-1 rounded">
-                    {item.category}
+              <div className="p-4 flex-1 flex flex-col">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-medium">
+                    Found
                   </span>
-                  <span className={`px-2 py-1 rounded ${
-                    item.type === 'found' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {item.type}
+                  <span className="text-xs text-gray-500">
+                    {formatDate(item.createdAt)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mb-2">
-                  {item.mode} • {item.line} • {item.stationId}
+                <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1 group-hover:text-[#FF385C] transition-colors">
+                  {item.title}
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  {item.stationId} • {item.mode}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {formatDate(item.createdAt)}
-                </p>
+                <div className="mt-auto pt-3 border-t border-gray-100 flex justify-between items-center">
+                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    {item.category}
+                   </span>
+                   <span className="text-sm text-[#FF385C] font-medium">View Details →</span>
+                </div>
               </div>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No items found matching your criteria.</p>
+        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+           </div>
+          <h3 className="text-lg font-medium text-gray-900">No items found</h3>
+          <p className="text-gray-500 mt-1">Try adjusting your search or filters.</p>
         </div>
       )}
     </div>
   )
 }
 
-// Main page component with Suspense boundary
 export default function BrowsePage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-12 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="h-48 bg-gray-200 rounded mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
       <BrowseContent />
     </Suspense>
   )
