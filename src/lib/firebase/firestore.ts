@@ -171,3 +171,67 @@ export const FirestoreService = {
     await deleteDoc(doc(db, 'cctv', id));
   }
 };
+
+// --- TICKETS EXTENSIONS ---
+  getAllTickets: async () => {
+    const q = query(ticketsRef, orderBy('updatedAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ticket));
+  },
+
+  shareCCTVToTicket: async (ticketId: string, clip: CCTVClip, adminId: string) => {
+    const docRef = doc(db, 'tickets', ticketId);
+    const ticketDoc = await getDoc(docRef);
+    if (!ticketDoc.exists()) throw new Error("Ticket not found");
+    
+    const ticket = ticketDoc.data() as Ticket;
+    const newMessage: Message = {
+      id: `msg_sys_${Date.now()}`,
+      senderId: adminId,
+      senderName: 'Admin Support',
+      content: `I've attached CCTV footage from ${clip.stationId}. [[CCTV:${clip.id}]]`,
+      attachmentUrl: clip.thumbnailUrl,
+      timestamp: Date.now(),
+      read: false,
+      isAdmin: true
+    };
+    
+    await updateDoc(docRef, {
+      messages: [...ticket.messages, newMessage],
+      status: ticket.status === 'resolved' ? 'in-progress' : ticket.status,
+      updatedAt: Date.now()
+    });
+  },
+
+  // --- CCTV ---
+  // Ensure these exist as per previous phase, but double check implementation
+  getCCTVClips: async () => {
+    const q = query(cctvRef, orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CCTVClip));
+  },
+
+  createCCTVClip: async (clip: Omit<CCTVClip, 'id'>) => {
+    const docRef = await addDoc(cctvRef, clip);
+    return { id: docRef.id, ...clip };
+  },
+
+  deleteCCTVClip: async (id: string) => {
+    await deleteDoc(doc(db, 'cctv', id));
+  },
+
+  // --- CAMERAS ---
+  getCameras: async () => {
+    const q = query(camerasRef);
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CCTVCamera));
+  },
+
+  addCamera: async (camera: Omit<CCTVCamera, 'id' | 'status'>) => {
+    const docRef = await addDoc(camerasRef, { ...camera, status: 'online' });
+    return { id: docRef.id, ...camera, status: 'online' };
+  },
+
+  deleteCamera: async (id: string) => {
+    await deleteDoc(doc(db, 'cameras', id));
+  }

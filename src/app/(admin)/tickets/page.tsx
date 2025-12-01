@@ -1,8 +1,8 @@
-
+// FILE: src/app/(admin)/tickets/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { db } from '@/services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore';
 import { Ticket } from '@/types';
 import Link from 'next/link';
 
@@ -13,9 +13,14 @@ export default function AdminTicketsPage() {
 
   useEffect(() => {
     const loadTickets = async () => {
-      const all = await db.getAllTickets();
-      setTickets(all.sort((a, b) => b.updatedAt - a.updatedAt));
-      setLoading(false);
+      try {
+        const all = await FirestoreService.getAllTickets();
+        setTickets(all.sort((a, b) => b.updatedAt - a.updatedAt));
+      } catch (error) {
+        console.error("Failed to load tickets", error);
+      } finally {
+        setLoading(false);
+      }
     };
     loadTickets();
   }, []);

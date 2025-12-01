@@ -1,9 +1,9 @@
+// FILE: src/app/(user)/report/page.tsx
 'use client';
 
 import React, { useState } from 'react';
-import { db } from '@/services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore'; // UPDATED from mockFirebase
 import { useAuth } from '@/components/providers/AuthProvider';
-import { analyzeItemDescription } from '@/services/geminiService';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TransitMode, ItemCategory, ItemStatus } from '@/types';
@@ -12,7 +12,6 @@ export default function ReportLostPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -25,6 +24,13 @@ export default function ReportLostPage() {
 
   const [keywords, setKeywords] = useState<string[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Manual keyword extraction (simple fallback)
+  const extractKeywords = (text: string) => {
+    return text.split(' ')
+      .filter(w => w.length > 3)
+      .map(w => w.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  };
 
   if (!user) {
     return (
@@ -55,23 +61,6 @@ export default function ReportLostPage() {
     );
   }
 
-  const handleAiAnalyze = async () => {
-    if (!formData.title || !formData.description) return;
-    setAnalyzing(true);
-    
-    // Call Gemini Service
-    const result = await analyzeItemDescription(formData.description, formData.title);
-    
-    setKeywords(result.keywords);
-    // Check if suggested category exists in our Enum values
-    const isValidCategory = Object.values(ItemCategory).includes(result.suggestedCategory as ItemCategory);
-    
-    if(isValidCategory) {
-        setFormData(prev => ({ ...prev, category: result.suggestedCategory }));
-    }
-    setAnalyzing(false);
-  };
-
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -93,22 +82,27 @@ export default function ReportLostPage() {
 
     setLoading(true);
     try {
-      const newItem = await db.createItem({
+      const generatedKeywords = extractKeywords(formData.title + ' ' + formData.description);
+      
+      const newItem = await FirestoreService.createItem({
         ...formData,
         userId: user.uid,
         itemType: 'lost',
         status: ItemStatus.Reported,
-        keywords: keywords,
+        keywords: generatedKeywords,
         imageUrls: [imagePreview],
+        aiMatchScore: 0,
+        // FirestoreService adds timestamps
       });
 
-      await db.createTicket({
+      await FirestoreService.createTicket({
         userId: user.uid,
         type: 'support',
         title: `Lost Report: ${formData.title}`,
-        description: `Automated ticket for reported lost item. Item ID: ${newItem.id}. You can use this chat to provide more details to admins.`,
+        description: `Automated ticket for reported lost item. Item ID: ${newItem.id}.`,
         relatedItemId: newItem.id,
         status: 'open',
+        adminId: 'system' // or leave undefined
       });
 
       router.push('/dashboard');
@@ -156,38 +150,8 @@ export default function ReportLostPage() {
                     value={formData.description}
                     onChange={e => setFormData({...formData, description: e.target.value})}
                 />
-                <div className="absolute bottom-3 right-3">
-                     <button
-                        type="button"
-                        onClick={handleAiAnalyze}
-                        disabled={analyzing || !formData.description}
-                        className="inline-flex items-center px-3 py-1.5 border border-brand/20 rounded-lg text-xs font-bold text-brand bg-white hover:bg-brand/10 focus:outline-none transition"
-                    >
-                        {analyzing ? (
-                            <>Processing...</>
-                        ) : (
-                            <>
-                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
-                                AI Extract Keywords
-                            </>
-                        )}
-                    </button>
-                </div>
               </div>
             </div>
-
-            {keywords.length > 0 && (
-                <div className="sm:col-span-6">
-                    <label className="block text-sm font-bold text-ink mb-2">Detected Keywords</label>
-                    <div className="flex flex-wrap gap-2">
-                        {keywords.map((k, i) => (
-                            <span key={i} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
-                                {k}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             <div className="sm:col-span-6">
               <label className="block text-sm font-bold text-ink mb-2">
@@ -233,6 +197,7 @@ export default function ReportLostPage() {
               </div>
             </div>
 
+            {/* Selects for Category, Mode, Station - same as before */}
             <div className="sm:col-span-3">
               <label className="block text-sm font-bold text-ink mb-2">Category</label>
               <select

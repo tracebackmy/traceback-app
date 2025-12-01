@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { db } from '../services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore';
 import { SystemUser } from '../types';
 
 interface LayoutProps {

@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "date-fns": "^4.1.0",
     "firebase": "^12.6.0",
     "isomorphic-dompurify": "^2.33.0",

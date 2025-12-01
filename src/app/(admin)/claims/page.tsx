@@ -1,8 +1,9 @@
-
+// FILE: src/app/(admin)/claims/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { db } from '@/services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore';
+import { approveClaimAction, rejectClaimAction } from '@/lib/actions/adminActions.action';
 import { ClaimRequest, Item } from '@/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,29 +20,50 @@ export default function AdminClaimsPage() {
   }, []);
 
   const loadData = async () => {
-    const allClaims = await db.getAllClaims();
-    const allItems = await db.getItems();
-    setClaims(allClaims.sort((a, b) => b.createdAt - a.createdAt));
-    setItems(allItems);
-    setLoading(false);
+    try {
+        const allClaims = await FirestoreService.getAllClaims();
+        // Fetch items efficiently? For now fetching recent/all needed for display
+        // Optimization: In real app, fetch only items related to claims
+        // Here we fetch a batch or rely on what we have. 
+        // Let's fetch all items for simplicity in V1 admin view
+        const { items: allItems } = await FirestoreService.getItems({ limit: 100 });
+        
+        setClaims(allClaims.sort((a, b) => b.createdAt - a.createdAt));
+        setItems(allItems);
+    } catch(e) {
+        console.error("Failed to load claims data", e);
+    } finally {
+        setLoading(false);
+    }
   };
 
   const getItemForClaim = (itemId: string) => items.find(i => i.id === itemId);
 
   const handleApprove = async (claimId: string) => {
     if (confirm("Are you sure you want to approve this claim? This will resolve the item.")) {
-        await db.approveClaim(claimId, 'admin_123');
-        alert("Claim Approved.");
-        loadData();
+        const claim = claims.find(c => c.id === claimId);
+        if(!claim) return;
+
+        const result = await approveClaimAction(claimId, 'admin', claim.itemId);
+        if(result.success) {
+            alert("Claim Approved.");
+            loadData();
+        } else {
+            alert("Failed to approve claim.");
+        }
     }
   };
 
   const handleReject = async (claimId: string) => {
-    const reason = prompt("Please provide a reason for rejection (this will be sent to the user):");
+    const reason = prompt("Please provide a reason for rejection:");
     if (reason) {
-        await db.rejectClaim(claimId, 'admin_123', reason);
-        alert("Claim Rejected.");
-        loadData();
+        const result = await rejectClaimAction(claimId, 'admin', reason);
+        if(result.success) {
+            alert("Claim Rejected.");
+            loadData();
+        } else {
+            alert("Failed to reject claim.");
+        }
     }
   };
 
@@ -116,12 +138,14 @@ export default function AdminClaimsPage() {
                                         {new Date(claim.createdAt).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                        <button 
-                                            onClick={() => router.push(`/tickets/${claim.verificationTicketId}`)}
-                                            className="text-brand hover:text-brand-600 font-bold"
-                                        >
-                                            Open Chat
-                                        </button>
+                                        {claim.verificationTicketId && (
+                                            <button 
+                                                onClick={() => router.push(`/tickets/${claim.verificationTicketId}`)}
+                                                className="text-brand hover:text-brand-600 font-bold"
+                                            >
+                                                Open Chat
+                                            </button>
+                                        )}
                                         
                                         {claim.status !== 'approved' && claim.status !== 'rejected' && (
                                             <>

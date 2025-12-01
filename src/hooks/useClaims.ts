@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore';
 import { ClaimRequest } from '@/types';
 import { logger } from '@/lib/utils/logger';
 

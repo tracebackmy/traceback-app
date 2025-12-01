@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { db } from '@/services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore';
 import { DashboardStats, ClaimRequest, Item, ClaimStatus, ItemStatus } from '@/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';

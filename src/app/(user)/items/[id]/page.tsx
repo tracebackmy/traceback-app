@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { db } from '@/services/mockFirebase';
+import { FirestoreService } from '@/lib/firebase/firestore';
 import { Item, Ticket } from '@/types';
 import { useAuth } from '@/components/providers/AuthProvider';
 import Link from 'next/link';

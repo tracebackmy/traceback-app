@@ -8,7 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
 // For this step, I will stick to the Security Fix focus but assume db usage or API usage.
 // Assuming we are still using the "db" service or have switched to API hooks.
 // Let's apply the sanitization to the existing structure.
-import { db } from '@/services/mockFirebase'; // OR useTickets hook if refactored
+import { FirestoreService } from '@/lib/firebase/firestore';
 import { Ticket } from '@/types';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { sanitizeInput } from '@/lib/utils/validators'; // Import sanitizer
