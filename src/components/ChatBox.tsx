@@ -39,9 +39,6 @@ export default function ChatBox() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // --- HOOKS MUST BE CALLED HERE (Before any return) ---
-
-  // Real-time typing indicators
   useEffect(() => {
     if (!activeTicket?.id) return;
 
@@ -57,9 +54,7 @@ export default function ChatBox() {
     return () => unsubscribe();
   }, [activeTicket?.id]);
 
-  // Fetch tickets
   useEffect(() => {
-    // Guard clause inside the effect, not before it
     if (!user || !isOpen) return;
 
     const ticketsQuery = query(
@@ -74,16 +69,14 @@ export default function ChatBox() {
         ...doc.data()
       })) as Ticket[]
       setTickets(ticketsData)
-      // Only set active ticket if one isn't selected or update current one
       if (!activeTicket) {
          const openTicket = ticketsData.find(ticket => ticket.status === 'open')
          if (openTicket) setActiveTicket(openTicket)
       }
     })
     return () => unsubscribe()
-  }, [user, isOpen, activeTicket]) // Added activeTicket to deps to prevent overriding selection aggressively
+  }, [user, isOpen, activeTicket])
 
-  // Fetch messages
   useEffect(() => {
     if (!activeTicket) return;
 
@@ -103,18 +96,14 @@ export default function ChatBox() {
     return () => unsubscribe()
   }, [activeTicket])
 
-  // Auto-scroll
   useEffect(() => {
     if (isOpen) {
       scrollToBottom()
     }
   }, [messages, isTyping, isOpen])
 
-  // --- LOGIC FUNCTIONS ---
-
   const handleTyping = async () => {
     if (!user || !activeTicket) return;
-    // We don't await here to avoid blocking UI
     updateDoc(doc(db, 'typingIndicators', activeTicket.id), {
       ticketId: activeTicket.id,
       userId: user.uid,
@@ -153,7 +142,6 @@ export default function ChatBox() {
       const docRef = await addDoc(collection(db, 'tickets'), ticketData)
       const newTicket: Ticket = { id: docRef.id, ...ticketData }
       setActiveTicket(newTicket)
-      // setTickets is handled by the snapshot listener
     } catch (error) {
       console.error('Error creating ticket:', error)
     } finally {
@@ -202,7 +190,7 @@ export default function ChatBox() {
     if (!newMessage.trim() || !activeTicket || !user) return
     try {
       const messageText = newMessage.trim();
-      setNewMessage(''); // Clear UI immediately
+      setNewMessage(''); 
       
       const messageData = {
         text: messageText,
@@ -220,7 +208,7 @@ export default function ChatBox() {
       await updateDoc(doc(db, 'typingIndicators', activeTicket.id), { isTyping: false, timestamp: serverTimestamp() });
     } catch (error) {
       console.error('Error sending message:', error)
-      setNewMessage(newMessage); // Revert on error
+      setNewMessage(newMessage);
     }
   }
 
@@ -236,9 +224,6 @@ export default function ChatBox() {
      return timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  // --- CONDITIONAL RENDERING (Must be last) ---
-
-  // Check visibility logic
   const hiddenPaths = ['/', '/auth/login', '/auth/register'];
   const isHidden = hiddenPaths.includes(pathname) || !user;
 
@@ -248,7 +233,8 @@ export default function ChatBox() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-[#FF385C] text-white w-14 h-14 rounded-full shadow-lg hover:bg-[#E31C5F] transition-all duration-200 flex items-center justify-center z-50"
+        className="fixed bottom-6 right-6 bg-[#FF385C] text-white w-14 h-14 rounded-full shadow-xl hover:bg-[#E31C5F] transition-all duration-200 flex items-center justify-center z-50 transform hover:scale-105 active:scale-95"
+        title="Open Support Chat"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -256,56 +242,71 @@ export default function ChatBox() {
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col z-50 overflow-hidden">
+        <div className="fixed bottom-24 right-6 w-96 h-[550px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col z-50 overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
           <div className="bg-[#FF385C] text-white p-4 flex justify-between items-center shadow-sm">
             <div>
-              <h3 className="font-semibold">Support Chat</h3>
-              <p className="text-xs opacity-90">{activeTicket ? 'Connected' : 'Start a conversation'}</p>
+              <h3 className="font-bold text-lg">Support Chat</h3>
+              <p className="text-xs opacity-90">{activeTicket ? 'Connected with Admin' : 'How can we help?'}</p>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-white hover:opacity-80">
-              ✕
+            <button onClick={() => setIsOpen(false)} className="text-white hover:bg-white/20 p-1.5 rounded-full transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 
           {!activeTicket && (
-            <div className="p-4 flex-1 overflow-y-auto">
-              <h4 className="font-semibold text-gray-700 mb-3">Your Conversations</h4>
+            <div className="p-5 flex-1 overflow-y-auto flex flex-col">
+              <h4 className="font-semibold text-gray-800 mb-4">Recent Conversations</h4>
               {tickets.length === 0 ? (
-                <div className="text-center text-gray-500 py-6 text-sm">No previous chats found.</div>
+                <div className="text-center text-gray-500 py-12 flex-1 flex flex-col justify-center items-center">
+                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                   </div>
+                   <p className="text-sm">No conversations yet.</p>
+                </div>
               ) : (
-                tickets.map(ticket => (
-                  <button
-                    key={ticket.id}
-                    onClick={() => setActiveTicket(ticket)}
-                    className="w-full text-left p-3 mb-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
-                  >
-                    <p className="font-medium text-sm text-gray-900">{ticket.subject}</p>
-                    <p className="text-xs text-gray-500 mt-1">{ticket.status.toUpperCase()} • {formatTimestamp(ticket.updatedAt)}</p>
-                  </button>
-                ))
+                <div className="space-y-3">
+                  {tickets.map(ticket => (
+                    <button
+                      key={ticket.id}
+                      onClick={() => setActiveTicket(ticket)}
+                      className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md hover:border-gray-200 transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-start">
+                         <p className="font-semibold text-sm text-gray-900 line-clamp-1">{ticket.subject}</p>
+                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                           ticket.status === 'open' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+                         }`}>
+                           {ticket.status.toUpperCase()}
+                         </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">{formatTimestamp(ticket.updatedAt)}</p>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}
 
           {activeTicket && (
             <>
-              <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
-                <div className="mb-2 flex justify-between items-center">
-                    <button 
-                        onClick={() => setActiveTicket(null)}
-                        className="text-xs text-gray-500 hover:text-gray-900 flex items-center"
-                    >
-                        ← Back
-                    </button>
+              <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
+                <div className="mb-4">
+                   <button onClick={() => setActiveTicket(null)} className="text-xs text-gray-500 hover:text-gray-900 flex items-center font-medium">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                      Back to tickets
+                   </button>
                 </div>
+                
                 {messages.map(message => (
                   <div key={message.id} className={`flex mb-3 ${message.userId === user.uid ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                      message.userId === user.uid ? 'bg-[#FF385C] text-white' : 'bg-white text-gray-800 border border-gray-200 shadow-sm'
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm text-sm ${
+                      message.userId === user.uid 
+                        ? 'bg-[#FF385C] text-white rounded-br-none' 
+                        : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'
                     }`}>
                       {message.type === 'text' && <p>{message.text}</p>}
-                      {message.type === 'image' && <img src={message.fileUrl} className="rounded max-h-32" alt="attachment" />}
-                      <p className={`text-[10px] mt-1 text-right ${message.userId === user.uid ? 'text-white/80' : 'text-gray-400'}`}>
+                      {message.type === 'image' && <img src={message.fileUrl} className="rounded-lg max-h-40 object-cover" alt="attachment" />}
+                      <p className={`text-[10px] mt-1.5 text-right ${message.userId === user.uid ? 'text-white/70' : 'text-gray-400'}`}>
                         {formatTimestamp(message.timestamp)}
                       </p>
                     </div>
@@ -313,7 +314,7 @@ export default function ChatBox() {
                 ))}
                 {isTyping && (
                    <div className="flex justify-start mb-3">
-                      <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+                      <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
                          <div className="flex space-x-1">
                             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
                             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-100"></div>
@@ -325,8 +326,8 @@ export default function ChatBox() {
                 <div ref={messagesEndRef} />
               </div>
 
-              <div className="p-3 bg-white border-t border-gray-200">
-                <div className="flex items-center gap-2">
+              <div className="p-4 bg-white border-t border-gray-100">
+                <div className="flex items-center gap-3 bg-gray-50 p-2 rounded-full border border-gray-200 focus-within:ring-2 focus-within:ring-[#FF385C] focus-within:border-transparent transition-all">
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -337,9 +338,10 @@ export default function ChatBox() {
                   <button 
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 text-gray-500 hover:text-[#FF385C] hover:bg-white rounded-full transition-colors"
+                    title="Attach Image"
                   >
-                    📎
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                   </button>
                   <input
                     type="text"
@@ -347,14 +349,16 @@ export default function ChatBox() {
                     onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
                     onKeyPress={handleKeyPress}
                     placeholder="Type a message..."
-                    className="flex-1 py-2 px-3 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[#FF385C] focus:bg-white transition-all"
+                    className="flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-500 focus:outline-none"
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim()}
-                    className="p-2 bg-[#FF385C] text-white rounded-full hover:bg-[#E31C5F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                    className={`p-2 rounded-full text-white transition-all shadow-sm ${
+                        !newMessage.trim() ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#FF385C] hover:bg-[#E31C5F]'
+                    }`}
                   >
-                    <svg className="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
                     </svg>
                   </button>
@@ -364,13 +368,14 @@ export default function ChatBox() {
           )}
 
           {!activeTicket && (
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
+            <div className="p-5 border-t border-gray-100 bg-gray-50">
                <button
                  onClick={createNewTicket}
                  disabled={loading}
-                 className="w-full bg-[#FF385C] text-white py-2.5 rounded-lg hover:bg-[#E31C5F] text-sm font-medium shadow-sm transition-all"
+                 className="w-full bg-white text-[#FF385C] py-3 rounded-xl border border-[#FF385C] hover:bg-pink-50 text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2"
                >
-                 + Start New Chat
+                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                 Start New Conversation
                </button>
             </div>
           )}

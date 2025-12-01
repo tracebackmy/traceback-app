@@ -308,7 +308,7 @@ export default function ReportPage() {
               rows={5}
               required
               className="form-input resize-none"
-              placeholder="Describe the item in detail. Include brand, color, unique features, scratches, or contents."
+              placeholder="Describe the item in detail. Include brand, color, distinctive features, contents, etc."
             />
           </div>
 
@@ -369,7 +369,7 @@ export default function ReportPage() {
             disabled={uploading}
             className="px-6 py-3 bg-[#FF385C] text-white rounded-lg hover:bg-[#E31C5F] disabled:opacity-50 font-medium shadow-sm transition-colors"
           >
-            {uploading ? 'Posting Report...' : 'Post Lost Report'}
+            {uploading ? 'Submitting...' : 'Submit Report'}
           </button>
         </div>
       </form>
