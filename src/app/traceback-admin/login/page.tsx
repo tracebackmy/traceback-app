@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { adminSignIn, isAdminEmail } from '@/lib/admin-auth';
+import { adminSignIn } from '@/lib/admin-auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -20,33 +20,16 @@ export default function AdminLoginPage() {
     try {
       console.log('🔐 Attempting admin login...');
       
-      // FIRST: Check if this is actually an admin email BEFORE attempting login
-      if (!isAdminEmail(email)) {
-        console.log('🚨 Regular user attempting to login via admin page - BLOCKING');
-        setError('Access denied. This login is for administrators only. Please use the user login page.');
-        setLoading(false);
-        return;
-      }
-
-      // SECOND: Attempt admin login
+      // The adminSignIn function now handles the Firestore check internally
       await adminSignIn(email, password);
-      console.log('✅ Admin login successful, redirecting to admin dashboard...');
       
-      // CRITICAL FIX: Force immediate redirect and prevent any interference
-      window.location.href = '/traceback-admin/dashboard';
+      console.log('✅ Admin login successful');
+      router.push('/traceback-admin/dashboard');
       
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('❌ Admin login error:', error);
-      if (error instanceof Error) {
-        // Check if it's an "Invalid admin credentials" error (meaning not an admin)
-        if (error.message === 'Invalid admin credentials') {
-          setError('Access denied. This login is for administrators only.');
-        } else {
-          setError(error.message || 'Failed to sign in');
-        }
-      } else {
-        setError('Failed to sign in');
-      }
+      // Show a safe error message
+      setError(error.message || 'Failed to sign in.');
     } finally {
       setLoading(false);
     }
@@ -66,11 +49,7 @@ export default function AdminLoginPage() {
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className={`px-4 py-3 rounded ${
-              error.includes('Access denied') 
-                ? 'bg-red-50 border border-red-200 text-red-600' 
-                : 'bg-red-50 border border-red-200 text-red-600'
-            }`}>
+            <div className="px-4 py-3 rounded bg-red-50 border border-red-200 text-red-600">
               {error}
             </div>
           )}
@@ -128,22 +107,6 @@ export default function AdminLoginPage() {
             </Link>
           </div>
         </form>
-        
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 text-sm">
-            <strong>⚠️ Restricted Access:</strong> This login is for authorized administrators only. 
-            Regular users should use the main login page.
-          </p>
-        </div>
-
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
-            Regular user?{' '}
-            <Link href="/auth/login" className="font-medium text-[#FF385C] hover:text-[#E31C5F]">
-              Sign in here
-            </Link>
-          </p>
-        </div>
       </div>
     </div>
   );

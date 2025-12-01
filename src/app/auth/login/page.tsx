@@ -5,7 +5,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { checkAdminStatus, isAdminEmail } from '@/lib/admin-auth'
+import { checkAdminStatus } from '@/lib/admin-auth'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,46 +17,36 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     try {
-      setLoading(true)
       console.log('🔐 Attempting user login...');
-      
-      // FIRST: Check if this email is in the admin list BEFORE attempting login
-      if (isAdminEmail(email)) {
-        console.log('🚨 ADMIN detected attempting to login via user page - BLOCKING');
-        setError('Admins must use the admin login page. Please use the admin login link below.');
-        setLoading(false);
-        return;
-      }
       
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       const user = userCredential.user;
       
-      // SECONDARY CHECK: Double-check if this user is an admin
+      // Check if this is an admin trying to log in as a user
       const isAdmin = await checkAdminStatus(user);
-      console.log('🔍 Login check: Is admin?', isAdmin);
       
       if (isAdmin) {
-        console.log('🚨 ADMIN detected in user login - signing out and showing error');
+        // Optional: You can allow admins to log in as users, 
+        // but based on your strict requirements, we block them here.
+        console.log('🚨 ADMIN detected in user login - redirecting to admin panel');
         await auth.signOut();
-        setError('Admins must use the admin login page. Please use the admin login link below.');
+        setError('Admins must use the Admin Portal.');
         setLoading(false);
         return;
       }
       
-      console.log('✅ Regular user login successful - going to user dashboard');
+      console.log('✅ User login successful');
+      router.push('/auth/dashboard')
       
-      // ORIGINAL BEHAVIOR: Redirect to dashboard even if not verified
-      // Users can still browse but certain features are protected
-      router.push('/dashboard')
-      
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('❌ User login error:', error);
-      if (error instanceof Error) {
-        setError(error.message || 'Failed to sign in')
+      if (error.code === 'auth/invalid-credential') {
+        setError('Invalid email or password.')
       } else {
-        setError('Failed to sign in')
+        setError('Failed to sign in. Please try again.')
       }
     } finally {
       setLoading(false)
@@ -127,9 +117,9 @@ export default function LoginPage() {
           
           <div className="text-center pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600">
-              Admin?{' '}
+              Staff Member?{' '}
               <Link href="/traceback-admin/login" className="font-medium text-[#FF385C] hover:text-[#E31C5F]">
-                Sign in here
+                Admin Login
               </Link>
             </p>
           </div>

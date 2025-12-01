@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { doc, setDoc } from 'firebase/firestore'
 import { validatePhone, validatePassword, validateEmail } from '@/lib/validation'
-import { isAdminEmail } from '@/lib/admin-auth'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -24,35 +23,25 @@ export default function RegisterPage() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    // Email validation
     const emailValidation = validateEmail(email)
     if (!emailValidation.isValid) {
       newErrors.email = emailValidation.message
     }
 
-    // CRITICAL: Check if email is an admin email
-    if (isAdminEmail(email)) {
-      newErrors.email = 'This email is reserved for administrators. Please use a different email.'
-    }
-
-    // Phone validation
     const phoneValidation = validatePhone(phone)
     if (!phoneValidation.isValid) {
       newErrors.phone = phoneValidation.message
     }
 
-    // Password validation
     const passwordValidation = validatePassword(password)
     if (!passwordValidation.isValid) {
       newErrors.password = passwordValidation.message
     }
 
-    // Confirm password validation
     if (password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
-    // Name validation
     if (!fullName.trim()) {
       newErrors.fullName = 'Full name is required'
     }
@@ -62,80 +51,56 @@ export default function RegisterPage() {
   }
 
   const handleFieldChange = (field: string, value: string) => {
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }))
     }
 
-    // Update the corresponding state
     switch (field) {
-      case 'email':
-        setEmail(value)
-        break
-      case 'password':
-        setPassword(value)
-        break
-      case 'confirmPassword':
-        setConfirmPassword(value)
-        break
-      case 'fullName':
-        setFullName(value)
-        break
-      case 'phone':
-        setPhone(value)
-        break
+      case 'email': setEmail(value); break;
+      case 'password': setPassword(value); break;
+      case 'confirmPassword': setConfirmPassword(value); break;
+      case 'fullName': setFullName(value); break;
+      case 'phone': setPhone(value); break;
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!validateForm()) {
-      return
-    }
+    if (!validateForm()) return
 
     setLoading(true)
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       
-      // Update profile with display name
       await updateProfile(userCredential.user, {
         displayName: fullName
       })
 
-      // Create user document in Firestore (USERS COLLECTION - SEPARATE FROM ADMINS)
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         email: email,
         fullName: fullName,
         phone: phone,
         emailVerified: false,
-        role: 'user', // EXPLICITLY SET AS USER
+        role: 'user',
         createdAt: new Date(),
         updatedAt: new Date()
       })
 
-      // Send verification email
       await sendVerificationEmail()
       
-      // ORIGINAL BEHAVIOR: Redirect to verification page but user can still browse
-      console.log('✅ User registered successfully - redirecting to verify email');
       router.push('/auth/verify-email')
 
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Registration error:', error)
-      if (error instanceof Error) {
-        // Handle Firebase auth errors
-        if (error.message.includes('email-already-in-use')) {
-          setErrors({ email: 'This email is already registered' })
-        } else if (error.message.includes('weak-password')) {
-          setErrors({ password: 'Password is too weak' })
-        } else {
-          setErrors({ general: error.message || 'Failed to create account' })
-        }
+      if (error.message.includes('email-already-in-use')) {
+        setErrors({ email: 'This email is already registered' })
+      } else if (error.message.includes('weak-password')) {
+        setErrors({ password: 'Password is too weak' })
       } else {
-        setErrors({ general: 'Failed to create account' })
+        setErrors({ general: error.message || 'Failed to create account' })
       }
     } finally {
       setLoading(false)
@@ -164,9 +129,7 @@ export default function RegisterPage() {
           )}
           
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-              Full Name
-            </label>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Full Name</label>
             <input
               id="fullName"
               name="fullName"
@@ -176,16 +139,13 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('fullName', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.fullName ? 'border-red-300' : 'border-gray-300'
-              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
-              placeholder="Enter your full name"
+              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
           </div>
 
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-              Phone Number
-            </label>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number</label>
             <input
               id="phone"
               name="phone"
@@ -195,72 +155,55 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('phone', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.phone ? 'border-red-300' : 'border-gray-300'
-              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
-              placeholder="e.g., 0123456789"
+              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
-            <p className="mt-1 text-xs text-gray-500">Must be 10 or 11 digits starting with 01</p>
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
-            </label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
             <input
               id="email"
               name="email"
               type="email"
-              autoComplete="email"
               required
               value={email}
               onChange={(e) => handleFieldChange('email', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.email ? 'border-red-300' : 'border-gray-300'
-              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
-              placeholder="Enter your email"
+              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
             <input
               id="password"
               name="password"
               type="password"
-              autoComplete="new-password"
               required
               value={password}
               onChange={(e) => handleFieldChange('password', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.password ? 'border-red-300' : 'border-gray-300'
-              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
-              placeholder="Enter your password"
+              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
-            <p className="mt-1 text-xs text-gray-500">
-              Must be at least 8 characters with uppercase, lowercase, number, and special character
-            </p>
           </div>
           
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-              Confirm Password
-            </label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm Password</label>
             <input
               id="confirmPassword"
               name="confirmPassword"
               type="password"
-              autoComplete="new-password"
               required
               value={confirmPassword}
               onChange={(e) => handleFieldChange('confirmPassword', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-              } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] focus:z-10 sm:text-sm`}
-              placeholder="Confirm your password"
+              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
           </div>
