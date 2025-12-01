@@ -1,4 +1,3 @@
-// src/components/AdminChatBox.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -247,66 +246,63 @@ export default function AdminChatBox() {
 
   return (
     <>
-      {/* Chat Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-[#FF385C] text-white w-14 h-14 rounded-full shadow-lg hover:bg-[#E31C5F] transition-all duration-200 flex items-center justify-center z-50"
+        className="fixed bottom-6 right-6 bg-[#FF385C] text-white w-14 h-14 rounded-full shadow-xl hover:bg-[#E31C5F] transition-all duration-200 flex items-center justify-center z-50 transform hover:scale-105 active:scale-95"
+        title="Admin Chat"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-20 right-6 w-96 h-[600px] bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col z-50">
-          {/* Header */}
-          <div className="bg-[#FF385C] text-white p-4 rounded-t-lg flex justify-between items-center">
+        <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col z-50 animate-in slide-in-from-bottom-5 duration-200">
+          <div className="bg-[#FF385C] text-white p-4 flex justify-between items-center rounded-t-2xl">
             <div>
-              <h3 className="font-semibold">Admin Support Chat</h3>
-              <p className="text-sm opacity-90">
-                {selectedTicket ? `Chatting with ${selectedTicket.userName}` : 'Select a ticket'}
+              <h3 className="font-bold text-lg">Admin Chat Console</h3>
+              <p className="text-xs opacity-90">
+                {selectedTicket ? `Chatting with ${selectedTicket.userName}` : 'Select a user ticket'}
               </p>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-white hover:text-gray-200"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <button onClick={() => setIsOpen(false)} className="text-white hover:bg-white/20 p-1.5 rounded-full transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 
-          {/* Tickets List */}
           {!selectedTicket && (
-            <div className="flex-1 overflow-y-auto p-4">
-              <h4 className="font-semibold text-gray-700 mb-4">Support Tickets</h4>
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+              <h4 className="font-semibold text-gray-700 mb-4">Incoming Support Tickets</h4>
               <div className="space-y-3">
                 {tickets.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-8">No active support tickets</p>
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No active support tickets</p>
+                  </div>
                 ) : (
                   tickets.map(ticket => (
                     <div
                       key={ticket.id}
-                      className="p-3 border border-gray-200 rounded-lg hover:border-[#FF385C] cursor-pointer transition-colors"
+                      className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-[#FF385C] cursor-pointer transition-all"
                       onClick={() => setSelectedTicket(ticket)}
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium text-sm">{ticket.userName}</p>
+                          <p className="font-bold text-sm text-gray-900">{ticket.userName}</p>
                           <p className="text-xs text-gray-500">{ticket.userEmail}</p>
-                          <p className="text-sm text-gray-700 mt-1">{ticket.subject}</p>
+                          <p className="text-sm text-gray-700 mt-2 line-clamp-1">{ticket.subject}</p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                           ticket.status === 'open' 
-                            ? 'bg-green-100 text-green-800' 
+                            ? 'bg-green-100 text-green-700' 
                             : ticket.status === 'in-progress'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-200 text-gray-600'
                         }`}>
                           {ticket.status}
                         </span>
+                      </div>
+                      <div className="mt-2 text-[10px] text-gray-400 text-right">
+                        Last updated: {formatTime(ticket.updatedAt)}
                       </div>
                     </div>
                   ))
@@ -315,21 +311,28 @@ export default function AdminChatBox() {
             </div>
           )}
 
-          {/* Chat Messages */}
           {selectedTicket && (
             <>
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="flex justify-between items-center mb-4">
+              <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+                <div className="mb-4 flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-100">
                   <div>
-                    <h4 className="font-semibold">{selectedTicket.userName}</h4>
-                    <p className="text-sm text-gray-500">{selectedTicket.userEmail}</p>
+                    <h4 className="font-semibold text-sm">{selectedTicket.userName}</h4>
+                    <p className="text-xs text-gray-500">{selectedTicket.userEmail}</p>
                   </div>
-                  <button
-                    onClick={() => closeTicket(selectedTicket.id)}
-                    className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 transition-colors"
-                  >
-                    Close Ticket
-                  </button>
+                  <div className="flex gap-2">
+                     <button 
+                        onClick={() => setSelectedTicket(null)}
+                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                        Back
+                    </button>
+                    <button
+                        onClick={() => closeTicket(selectedTicket.id)}
+                        className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-black transition-colors"
+                    >
+                        Close Ticket
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -339,45 +342,44 @@ export default function AdminChatBox() {
                       className={`flex ${message.isAdmin ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-xs rounded-lg px-3 py-2 ${
+                        className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                           message.isAdmin
-                            ? 'bg-[#FF385C] text-white'
-                            : 'bg-gray-200 text-gray-800'
+                            ? 'bg-[#FF385C] text-white rounded-br-none'
+                            : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
                         }`}
                       >
                         {message.type === 'image' ? (
                           <img
                             src={message.fileUrl}
                             alt="Shared image"
-                            className="max-w-full h-auto rounded mb-1"
+                            className="max-w-full h-auto rounded-lg mb-1"
                           />
                         ) : message.type === 'file' ? (
                           <a
                             href={message.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center text-blue-600 hover:underline mb-1"
+                            className={`flex items-center hover:underline mb-1 ${message.isAdmin ? 'text-white' : 'text-blue-600'}`}
                           >
                             📎 {message.fileName}
                           </a>
                         ) : (
-                          <p className="text-sm">{message.text}</p>
+                          <p>{message.text}</p>
                         )}
-                        <p className="text-xs opacity-70 mt-1">
+                        <p className={`text-[10px] mt-1 text-right ${message.isAdmin ? 'text-white/70' : 'text-gray-400'}`}>
                           {formatTime(message.timestamp)}
                         </p>
                       </div>
                     </div>
                   ))}
                   
-                  {/* Typing Indicator */}
                   {isTyping && (
                     <div className="flex justify-start">
-                      <div className="bg-gray-200 text-gray-800 p-3 rounded-lg">
+                      <div className="bg-white text-gray-400 p-3 rounded-2xl rounded-bl-none border border-gray-200 shadow-sm">
                         <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+                          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-200"></div>
                         </div>
                       </div>
                     </div>
@@ -386,9 +388,8 @@ export default function AdminChatBox() {
                 </div>
               </div>
 
-              {/* Message Input */}
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex space-x-2">
+              <div className="p-4 border-t border-gray-200 bg-white rounded-b-2xl">
+                <div className="flex items-center gap-2">
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -400,9 +401,9 @@ export default function AdminChatBox() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                    className="p-2 text-gray-400 hover:text-[#FF385C] hover:bg-gray-50 rounded-full transition-colors"
                   >
-                    {uploading ? '📤' : '📎'}
+                    {uploading ? '...' : '📎'}
                   </button>
                   <input
                     type="text"
@@ -417,15 +418,19 @@ export default function AdminChatBox() {
                         sendMessage();
                       }
                     }}
-                    placeholder="Type your message..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+                    placeholder="Type your reply..."
+                    className="flex-1 bg-gray-100 text-sm px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#FF385C] focus:bg-white transition-all"
                   />
                   <button
                     onClick={sendMessage}
                     disabled={!newMessage.trim()}
-                    className="bg-[#FF385C] text-white px-4 py-2 rounded-lg hover:bg-[#E31C5F] disabled:opacity-50 transition-colors"
+                    className={`p-2 rounded-full text-white transition-all shadow-sm ${
+                        !newMessage.trim() ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#FF385C] hover:bg-[#E31C5F]'
+                    }`}
                   >
-                    Send
+                    <svg className="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
                   </button>
                 </div>
               </div>

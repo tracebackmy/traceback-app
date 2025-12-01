@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, deleteDoc, doc, updateDoc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
-import { Item } from '@/types/item'; // Use the shared type
+import { Item } from '@/types/item'; 
 
 export default function AdminItems() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'lost' | 'found'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchItems();
@@ -54,9 +55,14 @@ export default function AdminItems() {
     }
   };
 
-  const filteredItems = items.filter(item => 
-    filter === 'all' || item.type === filter
-  );
+  const filteredItems = items.filter(item => {
+    const matchesFilter = filter === 'all' || item.type === filter;
+    const matchesSearch = 
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.stationId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -70,7 +76,7 @@ export default function AdminItems() {
 
   if (loading) {
     return (
-      <div className="animate-pulse p-6">
+      <div className="p-6 animate-pulse">
         <div className="h-8 bg-gray-200 rounded w-1/3 mb-8"></div>
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
@@ -83,87 +89,106 @@ export default function AdminItems() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manage Items</h1>
           <p className="text-gray-600 mt-1">View and manage Lost & Found inventory and reports</p>
         </div>
         <Link
           href="/traceback-admin/items/new"
-          className="bg-[#FF385C] text-white px-4 py-2 rounded-lg hover:bg-[#E31C5F] transition-colors flex items-center"
+          className="bg-[#FF385C] text-white px-6 py-3 rounded-lg hover:bg-[#E31C5F] transition-colors font-medium shadow-sm flex items-center"
         >
-          <span className="mr-2">+</span> Add New Item
+          <span className="mr-2 text-lg">+</span> Register Found Item
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="flex space-x-2 bg-white p-1 rounded-lg border border-gray-200 w-fit">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            filter === 'all' ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          All Items
-        </button>
-        <button
-          onClick={() => setFilter('lost')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            filter === 'lost' ? 'bg-red-50 text-red-700' : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          Lost Reports
-        </button>
-        <button
-          onClick={() => setFilter('found')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            filter === 'found' ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          Found Inventory
-        </button>
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="flex space-x-2 bg-gray-50 p-1 rounded-lg">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              filter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilter('lost')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              filter === 'lost' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-red-600'
+            }`}
+          >
+            Lost Reports
+          </button>
+          <button
+            onClick={() => setFilter('found')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              filter === 'found' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-green-600'
+            }`}
+          >
+            Found Inventory
+          </button>
+        </div>
+        
+        <div className="relative w-full sm:w-72">
+           <input
+            type="text"
+            placeholder="Search items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="form-input pl-10"
+          />
+          <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        </div>
       </div>
 
-      {/* Items List */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      {/* Items Table */}
+      <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Details</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location / Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item Details</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Location / Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    No items found matching the current filter.
+                    <div className="flex flex-col items-center justify-center">
+                      <svg className="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                      <p className="text-lg font-medium">No items found</p>
+                      <p className="text-sm mt-1">Try adjusting your filters or search query.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        {item.imageUrls && item.imageUrls.length > 0 && (
+                        {item.imageUrls && item.imageUrls.length > 0 ? (
                           <img 
                             src={item.imageUrls[0]} 
                             alt="" 
-                            className="h-10 w-10 rounded object-cover mr-3 border border-gray-200"
+                            className="h-12 w-12 rounded-lg object-cover mr-4 border border-gray-200 group-hover:scale-105 transition-transform"
                           />
+                        ) : (
+                           <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center mr-4 border border-gray-200 text-xs text-gray-400">No Img</div>
                         )}
                         <div>
                           <div className="text-sm font-medium text-gray-900">{item.title}</div>
-                          <div className="text-xs text-gray-500 truncate max-w-[200px]">{item.description}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-[200px]">{item.category}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      <span className={`inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full ${
                         item.type === 'lost' 
                           ? 'bg-red-100 text-red-800' 
                           : 'bg-green-100 text-green-800'
@@ -179,9 +204,10 @@ export default function AdminItems() {
                       <select
                         value={item.status}
                         onChange={(e) => updateItemStatus(item.id, e.target.value as Item['status'])}
-                        className={`text-sm border-gray-300 rounded px-2 py-1 border focus:ring-2 focus:ring-[#FF385C] focus:border-transparent cursor-pointer ${
+                        className={`text-xs font-medium border-gray-300 rounded-md px-2 py-1 border focus:ring-2 focus:ring-[#FF385C] focus:border-transparent cursor-pointer ${
                           item.status === 'resolved' ? 'text-green-700 bg-green-50' :
-                          item.status === 'closed' ? 'text-gray-500 bg-gray-50' : 'text-gray-900'
+                          item.status === 'closed' ? 'text-gray-500 bg-gray-50' : 
+                          item.status === 'claimed' ? 'text-blue-700 bg-blue-50' : 'text-gray-900 bg-white'
                         }`}
                       >
                         <option value="open">Open</option>
@@ -193,13 +219,13 @@ export default function AdminItems() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-3">
                       <Link
                         href={`/traceback-admin/items/${item.id}`}
-                        className="text-[#FF385C] hover:text-[#E31C5F] font-medium"
+                        className="text-[#FF385C] hover:text-[#E31C5F] font-medium bg-pink-50 px-3 py-1.5 rounded-md hover:bg-pink-100 transition-colors"
                       >
                         Manage
                       </Link>
                       <button
                         onClick={() => deleteItem(item.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors"
+                        className="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded-md hover:bg-red-50"
                         title="Delete Item"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

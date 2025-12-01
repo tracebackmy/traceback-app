@@ -6,7 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
-import { useToast } from '@/components/ToastProvider' // Import Toast
+import { useToast } from '@/components/ToastProvider'
 import Image from 'next/image'
 
 interface FormData {
@@ -29,7 +29,7 @@ const modes = ['MRT', 'LRT', 'KTM', 'Monorail', 'ERL']
 export default function ReportPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
-  const { showToast } = useToast() // Use Hook
+  const { showToast } = useToast()
   
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -146,16 +146,16 @@ export default function ReportPage() {
       const docRef = await addDoc(collection(db, 'items'), itemData)
       await createSupportTicket(docRef.id, formData.title)
 
-      showToast('Report submitted successfully! Check your dashboard.', 'success') // Toast
+      showToast('Report submitted successfully! Check your dashboard.', 'success')
       
       setTimeout(() => {
-        router.push('/profile')
+        router.push('/auth/dashboard')
       }, 2000)
 
     } catch (err: unknown) {
       console.error('Error reporting item:', err)
       setError('Failed to report item')
-      showToast('Failed to submit report', 'error') // Toast
+      showToast('Failed to submit report', 'error')
     } finally {
       setUploading(false)
     }
@@ -174,15 +174,15 @@ export default function ReportPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6">
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6 text-sm font-medium">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="title" className="form-label">
               Item Title *
             </label>
             <input
@@ -192,13 +192,13 @@ export default function ReportPage() {
               value={formData.title}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+              className="form-input"
               placeholder="e.g., Black Backpack, iPhone 13"
             />
           </div>
 
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="category" className="form-label">
               Category *
             </label>
             <select
@@ -207,7 +207,7 @@ export default function ReportPage() {
               value={formData.category}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+              className="form-input"
             >
               <option value="">Select a category</option>
               {categories.map(category => (
@@ -217,7 +217,7 @@ export default function ReportPage() {
           </div>
 
           <div>
-            <label htmlFor="mode" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="mode" className="form-label">
               Transit Mode *
             </label>
             <select
@@ -226,7 +226,7 @@ export default function ReportPage() {
               value={formData.mode}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+              className="form-input"
             >
               <option value="">Select mode</option>
               {modes.map(mode => (
@@ -236,7 +236,7 @@ export default function ReportPage() {
           </div>
 
           <div>
-            <label htmlFor="line" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="line" className="form-label">
               Line
             </label>
             <input
@@ -245,13 +245,13 @@ export default function ReportPage() {
               name="line"
               value={formData.line}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+              className="form-input"
               placeholder="e.g., Kajang Line"
             />
           </div>
 
           <div>
-            <label htmlFor="stationId" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="stationId" className="form-label">
               Station *
             </label>
             <input
@@ -261,17 +261,17 @@ export default function ReportPage() {
               value={formData.stationId}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
+              className="form-input"
               placeholder="e.g., KL Sentral"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="form-label">
               Preferred Contact Method *
             </label>
-            <div className="flex space-x-4">
-              <label className="flex items-center">
+            <div className="flex space-x-6 mt-2">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
                   name="contactPreference"
@@ -280,9 +280,9 @@ export default function ReportPage() {
                   onChange={handleInputChange}
                   className="h-4 w-4 text-[#FF385C] focus:ring-[#FF385C] border-gray-300"
                 />
-                <span className="ml-2 text-gray-700">Email</span>
+                <span className="ml-2 text-gray-700 font-medium">Email</span>
               </label>
-              <label className="flex items-center">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="radio"
                   name="contactPreference"
@@ -291,13 +291,13 @@ export default function ReportPage() {
                   onChange={handleInputChange}
                   className="h-4 w-4 text-[#FF385C] focus:ring-[#FF385C] border-gray-300"
                 />
-                <span className="ml-2 text-gray-700">Phone</span>
+                <span className="ml-2 text-gray-700 font-medium">Phone</span>
               </label>
             </div>
           </div>
 
           <div className="md:col-span-2">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className="form-label">
               Description *
             </label>
             <textarea
@@ -305,39 +305,47 @@ export default function ReportPage() {
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              rows={4}
+              rows={5}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
-              placeholder="Describe the item in detail. Include brand, color, unique features, etc."
+              className="form-input resize-none"
+              placeholder="Describe the item in detail. Include brand, color, unique features, scratches, or contents."
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="form-label">
               Images (Optional, max 3)
             </label>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleImageChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
+            <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-gray-400 transition-colors bg-gray-50">
+              <div className="space-y-1 text-center">
+                <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div className="flex text-sm text-gray-600 justify-center">
+                  <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-[#FF385C] hover:text-[#E31C5F] focus-within:outline-none">
+                    <span>Upload files</span>
+                    <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleImageChange} />
+                  </label>
+                  <p className="pl-1">or drag and drop</p>
+                </div>
+                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+              </div>
+            </div>
+            
             {images.length > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-3 gap-4">
                 {images.map((image, index) => (
-                  <div key={index} className="relative">
+                  <div key={index} className="relative aspect-square group">
                     <Image
                       src={URL.createObjectURL(image)}
                       alt={`Preview ${index + 1}`}
-                      width={100}
-                      height={96}
-                      className="w-full h-24 object-cover rounded-md"
+                      fill
+                      className="object-cover rounded-lg border border-gray-200"
                     />
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-md hover:bg-red-600 transition-colors"
                     >
                       ×
                     </button>
@@ -348,20 +356,20 @@ export default function ReportPage() {
           </div>
         </div>
 
-        <div className="mt-8 flex justify-end space-x-3">
+        <div className="mt-8 flex justify-end space-x-4">
           <button
             type="button"
             onClick={() => router.back()}
-            className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={uploading}
-            className="px-6 py-2 bg-[#FF385C] text-white rounded-md hover:bg-[#E31C5F] disabled:opacity-50"
+            className="px-6 py-3 bg-[#FF385C] text-white rounded-lg hover:bg-[#E31C5F] disabled:opacity-50 font-medium shadow-sm transition-colors"
           >
-            {uploading ? 'Submitting...' : 'Submit Report'}
+            {uploading ? 'Posting Report...' : 'Post Lost Report'}
           </button>
         </div>
       </form>

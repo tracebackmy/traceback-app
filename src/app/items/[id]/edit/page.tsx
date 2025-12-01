@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import { Item } from '@/types/item';
+import { useToast } from '@/components/ToastProvider';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -14,6 +15,7 @@ export default function EditItemPage() {
   const { user, loading: authLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
+  const { showToast } = useToast();
   const itemId = params.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -47,16 +49,14 @@ export default function EditItemPage() {
       if (docSnap.exists()) {
         const data = docSnap.data() as Item;
         
-        // Security Check: Ensure current user owns this item
         if (data.userId !== user?.uid) {
-          alert('You do not have permission to edit this item.');
-          router.push('/dashboard');
+          showToast('You do not have permission to edit this item.', 'error');
+          router.push('/auth/dashboard');
           return;
         }
 
-        // Logic Check: Can only edit open items
         if (data.status !== 'open') {
-          alert('Cannot edit an item that is resolved or closed.');
+          showToast('Cannot edit an item that is resolved or closed.', 'error');
           router.push(`/items/${itemId}`);
           return;
         }
@@ -72,10 +72,11 @@ export default function EditItemPage() {
         });
         setExistingImages(data.imageUrls || []);
       } else {
-        router.push('/dashboard');
+        router.push('/auth/dashboard');
       }
     } catch (error) {
       console.error('Error fetching item:', error);
+      showToast('Error fetching item details', 'error');
     } finally {
       setLoading(false);
     }
@@ -90,7 +91,7 @@ export default function EditItemPage() {
     if (e.target.files) {
       const selected = Array.from(e.target.files);
       if (existingImages.length + newImages.length + selected.length > 3) {
-        alert('Maximum 3 images allowed total.');
+        showToast('Maximum 3 images allowed total.', 'error');
         return;
       }
       setNewImages(prev => [...prev, ...selected]);
@@ -111,7 +112,6 @@ export default function EditItemPage() {
 
     setSaving(true);
     try {
-      // Upload new images
       let uploadedUrls: string[] = [];
       if (newImages.length > 0) {
         const uploadPromises = newImages.map(async (image) => {
@@ -122,7 +122,6 @@ export default function EditItemPage() {
         uploadedUrls = await Promise.all(uploadPromises);
       }
 
-      // Combine existing kept images with new uploads
       const finalImageUrls = [...existingImages, ...uploadedUrls];
 
       await updateDoc(doc(db, 'items', itemId), {
@@ -130,11 +129,12 @@ export default function EditItemPage() {
         imageUrls: finalImageUrls,
         updatedAt: serverTimestamp(),
       });
-
+      
+      showToast('Item updated successfully', 'success');
       router.push('/auth/dashboard');
     } catch (error) {
       console.error('Error updating item:', error);
-      alert('Failed to update item.');
+      showToast('Failed to update item.', 'error');
     } finally {
       setSaving(false);
     }
@@ -146,31 +146,33 @@ export default function EditItemPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Edit Item Details</h1>
-        <Link href="/auth/dashboard" className="text-gray-500 hover:text-gray-700">Cancel</Link>
+        <Link href="/auth/dashboard" className="text-gray-500 hover:text-gray-900 text-sm font-medium">
+          Cancel
+        </Link>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200 space-y-6">
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+          <label className="form-label">Title</label>
           <input
             type="text"
             name="title"
             value={formData.title}
             onChange={handleInputChange}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C]"
+            className="form-input"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <label className="form-label">Category</label>
             <select
               name="category"
               value={formData.category}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="form-input"
             >
               <option value="Phone">Phone</option>
               <option value="Wallet">Wallet</option>
@@ -182,75 +184,78 @@ export default function EditItemPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+            <label className="form-label">Station</label>
             <input
               type="text"
               name="stationId"
               value={formData.stationId}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="form-input"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label className="form-label">Description</label>
           <textarea
             name="description"
             value={formData.description}
             onChange={handleInputChange}
             rows={4}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none"
+            className="form-input resize-none"
           />
         </div>
 
         {/* Image Management */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Images (Max 3)</label>
+          <label className="form-label mb-3 block">Images (Max 3)</label>
           
           <div className="grid grid-cols-3 gap-4 mb-4">
             {existingImages.map((url, idx) => (
               <div key={`exist-${idx}`} className="relative aspect-square">
-                <Image src={url} alt="Existing" fill className="object-cover rounded-md" />
+                <Image src={url} alt="Existing" fill className="object-cover rounded-lg border border-gray-200" />
                 <button
                   type="button"
                   onClick={() => removeExistingImage(url)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md hover:bg-red-600"
                 >
-                  X
+                  ×
                 </button>
               </div>
             ))}
             {newImages.map((file, idx) => (
-              <div key={`new-${idx}`} className="relative aspect-square bg-gray-100 rounded-md flex items-center justify-center">
-                <span className="text-xs text-gray-500 truncate px-2">{file.name}</span>
+              <div key={`new-${idx}`} className="relative aspect-square bg-gray-100 rounded-lg flex flex-col items-center justify-center border border-gray-200 p-2">
+                <span className="text-[10px] text-gray-500 truncate w-full text-center">{file.name}</span>
                 <button
                   type="button"
                   onClick={() => removeNewImage(idx)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md hover:bg-red-600"
                 >
-                  X
+                  ×
                 </button>
               </div>
             ))}
           </div>
 
           {(existingImages.length + newImages.length < 3) && (
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
+            <label className="block w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors">
+               <span className="text-sm font-medium text-[#FF385C]">Add Image</span>
+               <input
+                 type="file"
+                 accept="image/*"
+                 onChange={handleImageChange}
+                 className="hidden"
+               />
+            </label>
           )}
         </div>
 
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-[#FF385C] text-white py-3 px-4 rounded-md hover:bg-[#E31C5F] disabled:opacity-50 font-medium"
+          className="btn-primary mt-4"
         >
           {saving ? 'Saving Changes...' : 'Update Item'}
         </button>
