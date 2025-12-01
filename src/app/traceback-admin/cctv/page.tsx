@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from '@/components/AdminProvider';
 import CCTVViewer from '@/components/CCTVViewer';
-import { CCTVConfig, CCTVStats, DetectedObject, MotionEvent, isDetectedObject, isMotionEvent } from '@/types/cctv';
-import { cctvManager } from '@/lib/cctv-ai';
+import { CCTVConfig, CCTVStats, DetectedObject, MotionEvent } from '@/types/cctv';
 import { safeDateConvert } from '@/lib/date-utils';
 
-// Mock data for demonstration
+// Mock data for demonstration (Moved inside the file since we deleted the external service)
 const mockCameras: CCTVConfig[] = [
   {
     id: 'cam-1',
@@ -83,18 +82,18 @@ export default function CCTVPage() {
   const [showDetection, setShowDetection] = useState(true);
   const [recentEvents, setRecentEvents] = useState<(DetectedObject | MotionEvent)[]>([]);
   const [stats, setStats] = useState<CCTVStats>({
-    totalCameras: 0,
-    onlineCameras: 0,
-    offlineCameras: 0,
-    maintenanceCameras: 0,
-    motionEventsToday: 0,
-    objectsDetectedToday: 0,
-    storageUsed: 0,
+    totalCameras: 4,
+    onlineCameras: 2,
+    offlineCameras: 1,
+    maintenanceCameras: 1,
+    motionEventsToday: 12,
+    objectsDetectedToday: 45,
+    storageUsed: 450,
     storageTotal: 1000
   });
   const [loading, setLoading] = useState(true);
 
-  // Event handlers with stable references
+  // Event handlers
   const handleObjectDetected = useCallback((objects: DetectedObject[]) => {
     setRecentEvents(prev => [...objects, ...prev.slice(0, 9)]);
     setStats(prev => ({
@@ -103,126 +102,59 @@ export default function CCTVPage() {
     }));
   }, []);
 
-  const handleMotionDetected = useCallback((event: MotionEvent) => {
-    setRecentEvents(prev => [event, ...prev.slice(0, 9)]);
-    setStats(prev => ({
-      ...prev,
-      motionEventsToday: prev.motionEventsToday + 1
-    }));
-  }, []);
-
-  // Update stats function - FIXED: No circular dependency
-  const updateStats = useCallback(() => {
-    const cameraStats = cctvManager.getCameraStats();
-    setStats(prev => ({
-      ...prev,
-      totalCameras: cameraStats.total,
-      onlineCameras: cameraStats.online,
-      offlineCameras: cameraStats.offline,
-      maintenanceCameras: cameraStats.maintenance,
-      storageUsed: Math.min(prev.storageUsed + Math.random() * 5, prev.storageTotal)
-    }));
-  }, []);
-
-  // Initialize CCTV system - FIXED: No circular dependency
-  const initializeCCTV = useCallback(async () => {
-    try {
-      // Initialize CCTV manager with mock cameras
-      mockCameras.forEach(camera => {
-        cctvManager.addCamera(camera);
-      });
-
-      // Set up event listeners
-      mockCameras.forEach(camera => {
-        cctvManager.onObjectDetected(camera.id, handleObjectDetected);
-        cctvManager.onMotionDetected(camera.id, handleMotionDetected);
-      });
-
-      // Initialize AI service
-      await cctvManager.initialize();
-      
-      // Calculate initial stats
-      updateStats();
+  // Initialize CCTV system (Simulated)
+  useEffect(() => {
+    const timer = setTimeout(() => {
       setLoading(false);
-    } catch (error) {
-      console.error('Error initializing CCTV system:', error);
-      setLoading(false);
-    }
-  }, [handleObjectDetected, handleMotionDetected, updateStats]);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Camera management functions
-  const updateCameraStatus = useCallback(async (cameraId: string, status: CCTVConfig['status']) => {
-    try {
-      cctvManager.updateCamera(cameraId, { status });
-      setCameras(prev => 
-        prev.map(cam => 
-          cam.id === cameraId ? { ...cam, status, updatedAt: new Date() } : cam
-        )
-      );
-      
-      if (selectedCamera?.id === cameraId) {
-        setSelectedCamera(prev => prev ? { ...prev, status, updatedAt: new Date() } : null);
-      }
-      
-      updateStats();
-    } catch (error) {
-      console.error('Error updating camera status:', error);
+  const updateCameraStatus = (cameraId: string, status: CCTVConfig['status']) => {
+    setCameras(prev => 
+      prev.map(cam => 
+        cam.id === cameraId ? { ...cam, status, updatedAt: new Date() } : cam
+      )
+    );
+    if (selectedCamera?.id === cameraId) {
+      setSelectedCamera(prev => prev ? { ...prev, status, updatedAt: new Date() } : null);
     }
-  }, [selectedCamera, updateStats]);
+  };
 
-  const toggleRecording = useCallback((cameraId: string) => {
-    const camera = cameras.find(cam => cam.id === cameraId);
-    if (camera) {
-      const newRecordingState = !camera.isRecording;
-      cctvManager.updateCamera(cameraId, { isRecording: newRecordingState });
-      setCameras(prev =>
-        prev.map(cam =>
-          cam.id === cameraId ? { ...cam, isRecording: newRecordingState, updatedAt: new Date() } : cam
-        )
-      );
-      
-      if (selectedCamera?.id === cameraId) {
-        setSelectedCamera(prev => prev ? { ...prev, isRecording: newRecordingState, updatedAt: new Date() } : null);
-      }
+  const toggleRecording = (cameraId: string) => {
+    setCameras(prev =>
+      prev.map(cam =>
+        cam.id === cameraId ? { ...cam, isRecording: !cam.isRecording, updatedAt: new Date() } : cam
+      )
+    );
+    if (selectedCamera?.id === cameraId) {
+      setSelectedCamera(prev => prev ? { ...prev, isRecording: !prev.isRecording, updatedAt: new Date() } : null);
     }
-  }, [cameras, selectedCamera]);
+  };
 
-  const toggleDetectionFeature = useCallback((cameraId: string, feature: 'motionDetection' | 'objectDetection', enabled: boolean) => {
-    cctvManager.updateCamera(cameraId, { [feature]: enabled });
+  const toggleDetectionFeature = (cameraId: string, feature: 'motionDetection' | 'objectDetection', enabled: boolean) => {
     setCameras(prev =>
       prev.map(cam =>
         cam.id === cameraId ? { ...cam, [feature]: enabled, updatedAt: new Date() } : cam
       )
     );
-    
     if (selectedCamera?.id === cameraId) {
       setSelectedCamera(prev => prev ? { ...prev, [feature]: enabled, updatedAt: new Date() } : null);
     }
-  }, [selectedCamera]);
+  };
 
-  const getStoragePercentage = useCallback(() => {
+  const getStoragePercentage = () => {
     return (stats.storageUsed / stats.storageTotal) * 100;
-  }, [stats.storageUsed, stats.storageTotal]);
+  };
 
-  const getEventDescription = useCallback((event: DetectedObject | MotionEvent): string => {
-    if (isDetectedObject(event)) {
+  const getEventDescription = (event: DetectedObject | MotionEvent): string => {
+    if ('type' in event) {
       return `Object Detected: ${event.type}`;
-    } else if (isMotionEvent(event)) {
+    } else {
       return 'Motion Detected';
     }
-    return 'Unknown Event';
-  }, []);
-
-  // FIXED: Proper useEffect without circular dependencies
-  useEffect(() => {
-    initializeCCTV();
-  }, [initializeCCTV]);
-
-  // Separate effect for periodic updates
-  useEffect(() => {
-    const interval = setInterval(updateStats, 30000);
-    return () => clearInterval(interval);
-  }, [updateStats]);
+  };
 
   if (loading) {
     return (
@@ -233,11 +165,6 @@ export default function CCTVPage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="h-32 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded"></div>
               ))}
             </div>
           </div>
@@ -301,7 +228,7 @@ export default function CCTVPage() {
               </div>
             </div>
           </div>
-
+          
           <div className="bg-white rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -437,11 +364,11 @@ export default function CCTVPage() {
                     </div>
                   ) : (
                     recentEvents.map((event, index) => (
-                      <div key={`${isDetectedObject(event) ? event.id : `motion-${index}`}-${event.timestamp.getTime()}`} 
+                      <div key={`${'id' in event ? event.id : `motion-${index}`}-${event.timestamp.getTime()}`} 
                            className="p-4 border-b border-gray-100">
                         <div className="flex items-start space-x-3">
                           <div className={`w-2 h-2 mt-2 rounded-full ${
-                            isDetectedObject(event) ? 'bg-blue-500' : 'bg-yellow-500'
+                            'type' in event ? 'bg-blue-500' : 'bg-yellow-500'
                           }`} />
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">
@@ -450,12 +377,12 @@ export default function CCTVPage() {
                             <p className="text-xs text-gray-500">
                               {safeDateConvert(event.timestamp).toLocaleTimeString()}
                             </p>
-                            {isDetectedObject(event) && (
+                            {'type' in event && (
                               <p className="text-xs text-gray-500">
                                 Confidence: {Math.round(event.confidence * 100)}%
                               </p>
                             )}
-                            {isMotionEvent(event) && (
+                            {'duration' in event && (
                               <p className="text-xs text-gray-500">
                                 Duration: {(event.duration / 1000).toFixed(1)}s
                               </p>
