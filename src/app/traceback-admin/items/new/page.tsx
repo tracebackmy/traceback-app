@@ -6,6 +6,7 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useAdmin } from '@/components/AdminProvider';
+import { useToast } from '@/components/ToastProvider'; // Import Toast
 
 interface NewItemForm {
   title: string;
@@ -27,6 +28,7 @@ const modes = ['MRT', 'LRT', 'KTM', 'Monorail', 'ERL'];
 export default function NewItemPage() {
   const { admin } = useAdmin();
   const router = useRouter();
+  const { showToast } = useToast(); // Use Hook
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [formData, setFormData] = useState<NewItemForm>({
@@ -91,10 +93,11 @@ export default function NewItemPage() {
       };
 
       await addDoc(collection(db, 'items'), itemData);
+      showToast('Found item registered successfully', 'success'); // Toast
       router.push('/traceback-admin/items');
     } catch (error) {
       console.error('Error creating item:', error);
-      alert('Failed to create item');
+      showToast('Failed to create item', 'error'); // Toast
     } finally {
       setLoading(false);
     }

@@ -6,10 +6,10 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ToastProvider' // Import Toast
 import Image from 'next/image'
 
 interface FormData {
-  // Type is hardcoded to 'lost' in logic, removed from UI
   title: string
   category: string
   description: string
@@ -29,6 +29,7 @@ const modes = ['MRT', 'LRT', 'KTM', 'Monorail', 'ERL']
 export default function ReportPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { showToast } = useToast() // Use Hook
   
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -43,7 +44,6 @@ export default function ReportPage() {
   const [images, setImages] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -67,7 +67,7 @@ export default function ReportPage() {
     if (e.target.files) {
       const selectedImages = Array.from(e.target.files)
       if (selectedImages.length + images.length > 3) {
-        setError('You can only upload up to 3 images')
+        showToast('You can only upload up to 3 images', 'error')
         return
       }
       setImages(prev => [...prev, ...selectedImages])
@@ -107,7 +107,6 @@ export default function ReportPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
 
     if (!user) {
       setError('You must be logged in to report an item')
@@ -128,10 +127,9 @@ export default function ReportPage() {
         imageUrls = await uploadImages(user.uid, tempDocRef.id)
       }
 
-      // STRICTLY REPORT AS 'LOST'
       const itemData = {
         userId: user.uid,
-        type: 'lost', // Hardcoded
+        type: 'lost',
         title: formData.title.trim(),
         category: formData.category,
         description: formData.description.trim(),
@@ -148,7 +146,7 @@ export default function ReportPage() {
       const docRef = await addDoc(collection(db, 'items'), itemData)
       await createSupportTicket(docRef.id, formData.title)
 
-      setSuccess('Report submitted successfully! Check your dashboard for updates.')
+      showToast('Report submitted successfully! Check your dashboard.', 'success') // Toast
       
       setTimeout(() => {
         router.push('/profile')
@@ -157,6 +155,7 @@ export default function ReportPage() {
     } catch (err: unknown) {
       console.error('Error reporting item:', err)
       setError('Failed to report item')
+      showToast('Failed to submit report', 'error') // Toast
     } finally {
       setUploading(false)
     }
@@ -180,16 +179,8 @@ export default function ReportPage() {
         </div>
       )}
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg mb-6">
-          {success}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Type Selector Removed - Automatically 'Lost' */}
-
           <div className="md:col-span-2">
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
               Item Title *
