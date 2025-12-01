@@ -1,15 +1,15 @@
-// src/app/items/[id]/claim/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/components/AuthProvider';
 import ClaimModal from '@/components/ClaimModal';
 import ClaimStatusBadge from '@/components/ClaimStatusBadge';
 import Link from 'next/link';
 import { Item } from '@/types/item';
+import { ClaimRequest } from '@/types/claim';
 
 export default function ClaimItemPage() {
   const params = useParams();
@@ -18,196 +18,151 @@ export default function ClaimItemPage() {
   const itemId = params.id as string;
   
   const [item, setItem] = useState<Item | null>(null);
+  const [userClaim, setUserClaim] = useState<ClaimRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [claimSuccess, setClaimSuccess] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    if (itemId) {
-      fetchItem();
-    }
-  }, [itemId, user, authLoading, router]);
-
-  const fetchItem = async () => {
+  const fetchItemAndClaim = useCallback(async () => {
     try {
+      // 1. Fetch Item
       const itemDoc = await getDoc(doc(db, 'items', itemId));
-      if (itemDoc.exists()) {
-        const itemData = {
-          id: itemDoc.id,
-          ...itemDoc.data()
-        } as Item;
-        setItem(itemData);
-        
-        // Check if user can claim this item
-        if (itemData.userId === user?.uid) {
-          setError('You cannot claim your own item');
-        } else if (itemData.claimStatus === 'claimed') {
-          setError('This item has already been claimed');
-        } else if (itemData.claimStatus === 'claim-pending') {
-          setError('There is already a pending claim for this item');
-        }
-      } else {
+      if (!itemDoc.exists()) {
         setError('Item not found');
+        return;
+      }
+      
+      const itemData = { id: itemDoc.id, ...itemDoc.data() } as Item;
+      setItem(itemData);
+
+      // 2. Fetch User's Claim for this item (if logged in)
+      if (user) {
+        const q = query(
+          collection(db, 'claims'),
+          where('itemId', '==', itemId),
+          where('userId', '==', user.uid)
+        );
+        const claimSnapshot = await getDocs(q);
+        if (!claimSnapshot.empty) {
+          const claimData = { id: claimSnapshot.docs[0].id, ...claimSnapshot.docs[0].data() } as ClaimRequest;
+          setUserClaim(claimData);
+        } else {
+          setUserClaim(null);
+        }
+      }
+
+      // Check validation
+      if (itemData.userId === user?.uid) {
+        setError('You cannot claim your own item');
       }
     } catch (error) {
-      console.error('Error fetching item:', error);
+      console.error('Error fetching data:', error);
       setError('Failed to load item details');
     } finally {
       setLoading(false);
+    }
+  }, [itemId, user]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push('/auth/login');
+      return;
+    }
+    fetchItemAndClaim();
+  }, [itemId, user, authLoading, router, fetchItemAndClaim]);
+
+  const handleWithdrawClaim = async () => {
+    if (!userClaim || !item) return;
+    if (!confirm('Are you sure you want to withdraw your claim? This action cannot be undone.')) return;
+
+    setWithdrawing(true);
+    try {
+      // 1. Delete the claim document
+      await deleteDoc(doc(db, 'claims', userClaim.id));
+
+      // 2. Update the item status back to unclaimed
+      // Only do this if the item was pending on THIS claim
+      if (item.currentClaimId === userClaim.id) {
+        await updateDoc(doc(db, 'items', item.id), {
+          claimStatus: 'unclaimed',
+          currentClaimId: null,
+          updatedAt: Timestamp.now()
+        });
+      }
+
+      // 3. Reset local state
+      setUserClaim(null);
+      alert('Claim withdrawn successfully.');
+      fetchItemAndClaim(); // Refresh data
+    } catch (error) {
+      console.error('Error withdrawing claim:', error);
+      alert('Failed to withdraw claim');
+    } finally {
+      setWithdrawing(false);
     }
   };
 
   const handleClaimSubmitted = () => {
     setClaimSuccess(true);
-    // Refresh item data to show updated claim status
-    setTimeout(() => {
-      fetchItem();
-    }, 1000);
-  };
-
-  const formatDate = (timestamp: unknown) => {
-    if (!timestamp) return 'Unknown date';
-    try {
-      let date: Date;
-      if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
-        date = (timestamp as { toDate: () => Date }).toDate();
-      } else if (timestamp instanceof Date) {
-        date = timestamp;
-      } else {
-        date = new Date(timestamp as string);
-      }
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch (error) {
-      return 'Unknown date';
-    }
+    fetchItemAndClaim();
   };
 
   const canClaimItem = () => {
     if (!user) return false;
     if (!item) return false;
     if (item.userId === user.uid) return false;
-    if (item.claimStatus !== 'unclaimed') return false;
-    return true;
+    // If item is unclaimed OR if user has no active claim
+    if (item.claimStatus === 'unclaimed' && !userClaim) return true;
+    return false;
   };
 
-  if (loading || authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            {/* Back button skeleton */}
-            <div className="h-6 bg-gray-200 rounded w-32"></div>
-            
-            {/* Header skeleton */}
-            <div className="space-y-2">
-              <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-            </div>
-
-            {/* Item card skeleton */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="h-6 bg-gray-200 rounded w-48 mb-4"></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="h-64 bg-gray-200 rounded-lg"></div>
-                <div className="space-y-4">
-                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full"></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="space-y-2">
-                        <div className="h-4 bg-gray-200 rounded w-20"></div>
-                        <div className="h-4 bg-gray-200 rounded w-16"></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   if (!item) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Item Not Found</h1>
-            <p className="text-gray-600 mb-6">
-              {error || 'The item you are looking for does not exist or may have been removed.'}
-            </p>
-            <Link 
-              href="/browse" 
-              className="inline-flex items-center bg-[#FF385C] text-white px-6 py-3 rounded-lg hover:bg-[#E31C5F] font-medium transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to Browse
-            </Link>
-          </div>
-        </div>
+      <div className="p-8 text-center max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Item Not Found</h1>
+        <Link href="/browse" className="text-[#FF385C] hover:underline">Back to Browse</Link>
       </div>
     );
   }
 
-  if (claimSuccess) {
+  // View: User has already claimed the item
+  if (userClaim) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm border border-green-200 p-8 text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+          <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-8 text-center">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">📝</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Claim Submitted Successfully!</h1>
-            <p className="text-gray-600 mb-4">
-              Your claim for <strong>&apos;{item.title}&apos;</strong> has been submitted for review.
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Claim Status: {userClaim.status.toUpperCase()}</h1>
+            <p className="text-gray-600 mb-6">
+              You submitted a claim for <strong>{item.title}</strong>.
             </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
-              <p className="text-green-800 text-sm">
-                <strong>What happens next?</strong>
-              </p>
-              <ul className="text-green-700 text-sm mt-2 space-y-1 text-left">
-                <li>• Our admin team will review your claim</li>
-                <li>• You&apos;ll be contacted via email for verification</li>
-                <li>• Check your dashboard for status updates</li>
-              </ul>
+            
+            <div className="bg-gray-50 p-4 rounded-lg text-left max-w-md mx-auto mb-6">
+              <p className="text-sm"><strong>Reason Provided:</strong> {userClaim.claimReason}</p>
+              <p className="text-sm mt-2 text-gray-500">Submitted on: {new Date(userClaim.createdAt.toDate()).toLocaleDateString()}</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href="/dashboard"
-                className="bg-[#FF385C] text-white px-6 py-3 rounded-lg hover:bg-[#E31C5F] font-medium transition-colors"
-              >
-                Go to Dashboard
+
+            <div className="flex justify-center gap-4">
+              <Link href="/auth/dashboard" className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                Back to Dashboard
               </Link>
-              <button
-                onClick={() => {
-                  setClaimSuccess(false);
-                  fetchItem();
-                }}
-                className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-              >
-                View Item Status
-              </button>
+              
+              {userClaim.status === 'pending' && (
+                <button
+                  onClick={handleWithdrawClaim}
+                  disabled={withdrawing}
+                  className="px-6 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                >
+                  {withdrawing ? 'Withdrawing...' : 'Withdraw Claim'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -215,275 +170,58 @@ export default function ClaimItemPage() {
     );
   }
 
+  // View: Success message after immediate submission
+  if (claimSuccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-8 text-center">
+          <h1 className="text-2xl font-bold text-green-600 mb-4">Claim Submitted!</h1>
+          <p className="mb-6">The admin will review your request shortly.</p>
+          <button onClick={() => window.location.reload()} className="text-[#FF385C] underline">View Status</button>
+        </div>
+      </div>
+    );
+  }
+
+  // View: Default Claim Form
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
-          <Link 
-            href={`/items/${item.id}`}
-            className="inline-flex items-center text-[#FF385C] hover:text-[#E31C5F] mb-4 font-medium transition-colors"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Item Details
-          </Link>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Claim This Item</h1>
-              <p className="text-gray-600 mt-2">Submit a claim request to verify this item belongs to you</p>
-            </div>
-            {item.claimStatus && (
-              <ClaimStatusBadge status={item.claimStatus} size="lg" />
-            )}
+          <Link href={`/items/${item.id}`} className="text-[#FF385C] font-medium">← Back to Item</Link>
+          <div className="flex justify-between items-center mt-2">
+            <h1 className="text-3xl font-bold text-gray-900">Claim Item</h1>
+            {item.claimStatus && <ClaimStatusBadge status={item.claimStatus} />}
           </div>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start">
-              <svg className="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <p className="text-red-800 font-medium">Unable to Claim Item</p>
-                <p className="text-red-700 text-sm mt-1">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {error && <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">{error}</div>}
 
-        {/* Item Details Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Item Details</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Item Image */}
-            <div className="space-y-4">
-              {item.imageUrls && item.imageUrls.length > 0 ? (
-                <img
-                  src={item.imageUrls[0]}
-                  alt={item.title}
-                  className="w-full h-64 object-cover rounded-lg"
-                />
-              ) : (
-                <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-                  <div className="text-center">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-gray-500 mt-2">No Image Available</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Additional item context */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Found Location</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Station</p>
-                    <p className="font-medium">{item.stationId}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Transit Line</p>
-                    <p className="font-medium">{item.line}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Mode</p>
-                    <p className="font-medium">{item.mode}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Reported</p>
-                    <p className="font-medium">{formatDate(item.createdAt)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Item Information */}
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">{item.title}</h3>
-                <p className="text-gray-600 mt-2 leading-relaxed">{item.description}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">Category</p>
-                  <p className="font-semibold text-gray-900">{item.category}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">Type</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    item.type === 'found' 
-                      ? 'bg-green-100 text-green-800 border border-green-200' 
-                      : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                  }`}>
-                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">Status</p>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    item.status === 'open' 
-                      ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                    item.status === 'claimed' 
-                      ? 'bg-orange-100 text-orange-800 border border-orange-200' :
-                      'bg-gray-100 text-gray-800 border border-gray-200'
-                  }`}>
-                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">Contact Preference</p>
-                  <p className="font-semibold text-gray-900 capitalize">{item.contactPreference}</p>
-                </div>
-              </div>
-
-              {/* Claim Status Information */}
-              {item.claimStatus !== 'unclaimed' && (
-                <div className={`p-4 rounded-lg ${
-                  item.claimStatus === 'claim-pending' 
-                    ? 'bg-yellow-50 border border-yellow-200' 
-                    : 'bg-red-50 border border-red-200'
-                }`}>
-                  <div className="flex items-start">
-                    <svg className={`w-5 h-5 mr-2 mt-0.5 flex-shrink-0 ${
-                      item.claimStatus === 'claim-pending' ? 'text-yellow-600' : 'text-red-600'
-                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className={`font-medium ${
-                        item.claimStatus === 'claim-pending' ? 'text-yellow-800' : 'text-red-800'
-                      }`}>
-                        {item.claimStatus === 'claim-pending' 
-                          ? 'Claim Under Review' 
-                          : 'Item Already Claimed'
-                        }
-                      </p>
-                      <p className={`text-sm mt-1 ${
-                        item.claimStatus === 'claim-pending' ? 'text-yellow-700' : 'text-red-700'
-                      }`}>
-                        {item.claimStatus === 'claim-pending'
-                          ? 'This item has a pending claim request. Please check back later for updates.'
-                          : 'This item has been successfully claimed by its owner.'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Claim Instructions */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Before You Claim
-          </h3>
-          <ul className="text-blue-800 space-y-3">
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Provide specific details about when and where you lost the item</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Include unique features, brand, color, serial numbers, or distinctive marks</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Mention any purchase receipts, photos, or other proof of ownership</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Our admin team will review your claim and contact you for verification</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Claim Action Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {user ? (
-            <div className="text-center">
-              {canClaimItem() ? (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Ready to Claim This Item?</h3>
-                  <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                    Provide details to help us verify this item belongs to you. The more specific information you provide, the faster we can process your claim.
-                  </p>
-                  <button
-                    onClick={() => setShowClaimModal(true)}
-                    className="bg-[#FF385C] text-white px-8 py-4 rounded-lg hover:bg-[#E31C5F] font-medium transition-colors shadow-sm hover:shadow-md"
-                  >
-                    Start Claim Process
-                  </button>
-                  <p className="text-sm text-gray-500 mt-4">
-                    You&apos;ll be asked to provide verification details in the next step
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Unable to Claim This Item</h3>
-                  <p className="text-gray-600 mb-6">
-                    {error || 'This item cannot be claimed at this time.'}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <Link
-                      href="/browse"
-                      className="bg-[#FF385C] text-white px-6 py-3 rounded-lg hover:bg-[#E31C5F] font-medium transition-colors"
-                    >
-                      Browse Other Items
-                    </Link>
-                    <Link
-                      href="/dashboard"
-                      className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                    >
-                      View Your Dashboard
-                    </Link>
-                  </div>
-                </>
-              )}
+          <h2 className="text-xl font-semibold mb-4">{item.title}</h2>
+          
+          {canClaimItem() ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600 mb-6">
+                To claim this item, please provide proof of ownership. This helps us ensure the item is returned to the right person.
+              </p>
+              <button
+                onClick={() => setShowClaimModal(true)}
+                className="bg-[#FF385C] text-white px-8 py-3 rounded-lg hover:bg-[#E31C5F] shadow-sm font-medium"
+              >
+                Start Claim Process
+              </button>
             </div>
           ) : (
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Sign In to Claim This Item</h3>
-              <p className="text-gray-600 mb-6">You need to be signed in to submit a claim request.</p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link
-                  href="/auth/login"
-                  className="bg-[#FF385C] text-white px-6 py-3 rounded-lg hover:bg-[#E31C5F] font-medium transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/auth/register"
-                  className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Create Account
-                </Link>
-              </div>
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <p className="text-gray-500">
+                This item is currently not available for claims (Status: {item.claimStatus}).
+              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Claim Modal */}
       {showClaimModal && item && (
         <ClaimModal
           isOpen={showClaimModal}

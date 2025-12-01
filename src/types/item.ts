@@ -12,7 +12,9 @@ export interface Item {
   line: string;
   stationId: string;
   contactPreference: 'email' | 'phone';
-  status: 'open' | 'closed' | 'resolved' | 'claimed'; // Add 'claimed' here
+  // 'resolved' means Admin found it or User found it elsewhere.
+  // 'claimed' means it was matched to a 'found' item via a claim request.
+  status: 'open' | 'closed' | 'resolved' | 'claimed'; 
   claimStatus: ItemClaimStatus;
   currentClaimId?: string;
   imageUrls: string[];

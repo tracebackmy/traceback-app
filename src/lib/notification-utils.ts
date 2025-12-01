@@ -34,14 +34,9 @@ export class NotificationService {
   // Mark all notifications as read for a user
   static async markAllAsRead(userId: string) {
     try {
-      const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', userId),
-        where('read', '==', false)
-      );
-      
-      // Note: This would require a batch update in a real implementation
-      // For now, we'll handle this in the component with individual updates
+      // Note: In a real app, use a batch write. For simplicity here:
+      // This function is usually called from a hook that iterates the local list
+      console.log('Batch mark read not implemented in utility to save reads');
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       throw error;
@@ -109,6 +104,27 @@ export class NotificationService {
       read: false,
       data: {
         itemName
+      }
+    });
+  }
+
+  // NEW: Notify user when Admin updates item status (e.g., marks as Found/Resolved)
+  static async createItemStatusUpdateNotification(
+    userId: string,
+    itemId: string,
+    itemName: string,
+    newStatus: string
+  ) {
+    return this.createNotification({
+      userId,
+      type: 'item_found', // Reusing this type as it fits the UI icon
+      title: 'Item Update',
+      message: `Good news! Your item "${itemName}" has been marked as ${newStatus}. Check your dashboard for details.`,
+      relatedId: itemId,
+      read: false,
+      data: {
+        itemName,
+        status: newStatus
       }
     });
   }
