@@ -27,6 +27,7 @@ export interface Notification {
     ticketId?: string;
     adminName?: string;
     status?: string;
+    userName?: string; // Added to fix the type error
   };
 }
 

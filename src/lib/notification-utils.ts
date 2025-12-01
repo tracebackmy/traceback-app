@@ -161,7 +161,7 @@ export class NotificationService {
       read: false,
       data: {
         claimId,
-        userName,
+        userName, // Now valid
         itemName
       }
     });
