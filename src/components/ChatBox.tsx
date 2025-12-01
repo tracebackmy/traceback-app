@@ -35,22 +35,11 @@ export default function ChatBox() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 1. Visibility Check: Don't show on Home or Login pages
-  const hiddenPaths = ['/', '/auth/login', '/auth/register'];
-  if (hiddenPaths.includes(pathname)) {
-    return null;
-  }
-
-  // Only render for authenticated users
-  if (!user) return null
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // ... (Rest of the existing logic remains the same) ...
-  // To save space, I am not re-printing the fetching logic as it was correct in previous steps.
-  // I will just output the render part with the new Auto-Scroll integration.
+  // --- HOOKS MUST BE CALLED HERE (Before any return) ---
 
   // Real-time typing indicators
   useEffect(() => {
@@ -70,6 +59,7 @@ export default function ChatBox() {
 
   // Fetch tickets
   useEffect(() => {
+    // Guard clause inside the effect, not before it
     if (!user || !isOpen) return;
 
     const ticketsQuery = query(
@@ -84,11 +74,14 @@ export default function ChatBox() {
         ...doc.data()
       })) as Ticket[]
       setTickets(ticketsData)
-      const openTicket = ticketsData.find(ticket => ticket.status === 'open')
-      if (openTicket) setActiveTicket(openTicket)
+      // Only set active ticket if one isn't selected or update current one
+      if (!activeTicket) {
+         const openTicket = ticketsData.find(ticket => ticket.status === 'open')
+         if (openTicket) setActiveTicket(openTicket)
+      }
     })
     return () => unsubscribe()
-  }, [user, isOpen])
+  }, [user, isOpen, activeTicket]) // Added activeTicket to deps to prevent overriding selection aggressively
 
   // Fetch messages
   useEffect(() => {
@@ -110,24 +103,31 @@ export default function ChatBox() {
     return () => unsubscribe()
   }, [activeTicket])
 
-  // Auto-scroll on new message
+  // Auto-scroll
   useEffect(() => {
-    scrollToBottom()
+    if (isOpen) {
+      scrollToBottom()
+    }
   }, [messages, isTyping, isOpen])
+
+  // --- LOGIC FUNCTIONS ---
 
   const handleTyping = async () => {
     if (!user || !activeTicket) return;
-    await updateDoc(doc(db, 'typingIndicators', activeTicket.id), {
+    // We don't await here to avoid blocking UI
+    updateDoc(doc(db, 'typingIndicators', activeTicket.id), {
       ticketId: activeTicket.id,
       userId: user.uid,
       userType: 'user',
       isTyping: true,
       timestamp: serverTimestamp()
-    });
+    }).catch(console.error);
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
+    
     typingTimeoutRef.current = setTimeout(async () => {
       await updateDoc(doc(db, 'typingIndicators', activeTicket.id), {
         isTyping: false,
@@ -153,7 +153,7 @@ export default function ChatBox() {
       const docRef = await addDoc(collection(db, 'tickets'), ticketData)
       const newTicket: Ticket = { id: docRef.id, ...ticketData }
       setActiveTicket(newTicket)
-      setTickets(prev => [newTicket, ...prev])
+      // setTickets is handled by the snapshot listener
     } catch (error) {
       console.error('Error creating ticket:', error)
     } finally {
@@ -201,8 +201,11 @@ export default function ChatBox() {
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeTicket || !user) return
     try {
+      const messageText = newMessage.trim();
+      setNewMessage(''); // Clear UI immediately
+      
       const messageData = {
-        text: newMessage.trim(),
+        text: messageText,
         userId: user.uid,
         userName: user.displayName || user.email || 'Unknown User',
         userEmail: user.email || 'No email',
@@ -215,9 +218,9 @@ export default function ChatBox() {
       await addDoc(collection(db, 'messages'), messageData)
       await updateDoc(doc(db, 'tickets', activeTicket.id), { updatedAt: Timestamp.now() })
       await updateDoc(doc(db, 'typingIndicators', activeTicket.id), { isTyping: false, timestamp: serverTimestamp() });
-      setNewMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
+      setNewMessage(newMessage); // Revert on error
     }
   }
 
@@ -232,6 +235,14 @@ export default function ChatBox() {
      if (!timestamp?.toDate) return '';
      return timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
+
+  // --- CONDITIONAL RENDERING (Must be last) ---
+
+  // Check visibility logic
+  const hiddenPaths = ['/', '/auth/login', '/auth/register'];
+  const isHidden = hiddenPaths.includes(pathname) || !user;
+
+  if (isHidden) return null;
 
   return (
     <>
@@ -279,6 +290,14 @@ export default function ChatBox() {
           {activeTicket && (
             <>
               <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+                <div className="mb-2 flex justify-between items-center">
+                    <button 
+                        onClick={() => setActiveTicket(null)}
+                        className="text-xs text-gray-500 hover:text-gray-900 flex items-center"
+                    >
+                        ← Back
+                    </button>
+                </div>
                 {messages.map(message => (
                   <div key={message.id} className={`flex mb-3 ${message.userId === user.uid ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
