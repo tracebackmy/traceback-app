@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { useAdmin } from '@/components/AdminProvider';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { onSnapshot } from 'firebase/firestore';
 import { Notification } from '@/types/notification';
-import { getNotificationsQuery, getUnreadNotificationsQuery, NotificationService } from '@/lib/notification-utils';
+import { getNotificationsQuery, NotificationService } from '@/lib/notification-utils';
 
 export const useNotifications = () => {
   const { user } = useAuth();
@@ -26,7 +25,7 @@ export const useNotifications = () => {
 
     setLoading(true);
 
-    // Subscribe to notifications for current user
+    // This query requires the index: userId (ASC) + createdAt (DESC)
     const notificationsQuery = getNotificationsQuery(currentUserId);
     
     const unsubscribe = onSnapshot(notificationsQuery, 
@@ -38,7 +37,7 @@ export const useNotifications = () => {
         
         setNotifications(notificationsData);
         
-        // Calculate unread count
+        // Calculate unread count client-side
         const unread = notificationsData.filter(notification => !notification.read).length;
         setUnreadCount(unread);
         setLoading(false);
