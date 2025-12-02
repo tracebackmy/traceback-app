@@ -11,18 +11,31 @@ import {
   Timestamp, 
   doc, 
   updateDoc,
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useAdmin } from '@/components/AdminProvider';
 import { ChatMessage, TypingIndicator, Ticket } from '@/types/chat';
+import Link from 'next/link';
+
+// Helper interface for context data
+interface ContextDetails {
+  title?: string;
+  subtitle?: string;
+  status?: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  type: 'item' | 'claim' | 'none';
+}
 
 export default function AdminChatBox() {
   const { admin } = useAdmin();
   const [isOpen, setIsOpen] = useState(false);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [contextDetails, setContextDetails] = useState<ContextDetails | null>(null); // New State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -68,6 +81,54 @@ export default function AdminChatBox() {
 
     return () => unsubscribe();
   }, [isOpen]);
+
+  // NEW: Fetch Context Data (Item or Claim)
+  useEffect(() => {
+    if (!selectedTicket) {
+      setContextDetails(null);
+      return;
+    }
+
+    const fetchContext = async () => {
+      // Default fallback
+      let details: ContextDetails = { type: 'none' };
+
+      if (selectedTicket.contextType === 'lost_report' && selectedTicket.relatedId) {
+        try {
+          const itemDoc = await getDoc(doc(db, 'items', selectedTicket.relatedId));
+          if (itemDoc.exists()) {
+            const data = itemDoc.data();
+            details = {
+              type: 'item',
+              title: data.title,
+              subtitle: `Lost at ${data.stationId}`,
+              status: data.status,
+              imageUrl: data.imageUrls?.[0],
+              linkUrl: `/traceback-admin/items/${itemDoc.id}`
+            };
+          }
+        } catch (e) { console.error(e); }
+      } else if (selectedTicket.contextType === 'claim_inquiry' && selectedTicket.relatedId) {
+        try {
+          const claimDoc = await getDoc(doc(db, 'claims', selectedTicket.relatedId));
+          if (claimDoc.exists()) {
+            const data = claimDoc.data();
+            details = {
+              type: 'claim',
+              title: `Claim for Item #${data.itemId.substring(0,6)}`, // Or fetch item title if needed
+              subtitle: `Reason: ${data.claimReason.substring(0, 20)}...`,
+              status: data.status,
+              linkUrl: `/traceback-admin/claims/${claimDoc.id}`
+            };
+          }
+        } catch (e) { console.error(e); }
+      }
+
+      setContextDetails(details);
+    };
+
+    fetchContext();
+  }, [selectedTicket]);
 
   // Fetch messages when ticket is selected
   useEffect(() => {
@@ -217,6 +278,7 @@ export default function AdminChatBox() {
       if (selectedTicket?.id === ticketId) {
         setSelectedTicket(null);
         setMessages([]);
+        setContextDetails(null);
       }
     } catch (error) {
       console.error('Error closing ticket:', error);
@@ -260,9 +322,9 @@ export default function AdminChatBox() {
         <div className="fixed bottom-24 right-6 w-96 h-[600px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col z-50 animate-in slide-in-from-bottom-5 duration-200">
           <div className="bg-[#FF385C] text-white p-4 flex justify-between items-center rounded-t-2xl">
             <div>
-              <h3 className="font-bold text-lg">Admin Chat Console</h3>
+              <h3 className="font-bold text-lg">Admin Console</h3>
               <p className="text-xs opacity-90">
-                {selectedTicket ? `Chatting with ${selectedTicket.userName}` : 'Select a user ticket'}
+                {selectedTicket ? `Chatting with ${selectedTicket.userName}` : 'Inbox'}
               </p>
             </div>
             <button onClick={() => setIsOpen(false)} className="text-white hover:bg-white/20 p-1.5 rounded-full transition-colors">
@@ -287,7 +349,15 @@ export default function AdminChatBox() {
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-bold text-sm text-gray-900">{ticket.userName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm text-gray-900">{ticket.userName}</p>
+                            {/* Context Badge */}
+                            {ticket.contextType && ticket.contextType !== 'general' && (
+                              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 rounded uppercase font-bold">
+                                {ticket.contextType === 'claim_inquiry' ? 'Claim' : 'Lost Item'}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">{ticket.userEmail}</p>
                           <p className="text-sm text-gray-700 mt-2 line-clamp-1">{ticket.subject}</p>
                         </div>
@@ -313,6 +383,29 @@ export default function AdminChatBox() {
 
           {selectedTicket && (
             <>
+              {/* Context Panel - Displays Item or Claim Details */}
+              {contextDetails && contextDetails.type !== 'none' && (
+                <div className="bg-blue-50 p-3 border-b border-blue-100 flex items-start gap-3">
+                  {contextDetails.imageUrl && (
+                    <img src={contextDetails.imageUrl} alt="Context" className="w-12 h-12 rounded object-cover border border-blue-200" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-blue-900 truncate">{contextDetails.title}</p>
+                    <p className="text-xs text-blue-700 truncate">{contextDetails.subtitle}</p>
+                    <div className="flex items-center mt-1 gap-2">
+                      <span className="text-[10px] bg-white text-blue-600 px-1.5 py-0.5 rounded border border-blue-200 uppercase font-semibold">
+                        {contextDetails.status}
+                      </span>
+                      {contextDetails.linkUrl && (
+                        <Link href={contextDetails.linkUrl} className="text-[10px] text-blue-600 underline hover:text-blue-800">
+                          View Full Details
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
                 <div className="mb-4 flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-100">
                   <div>
@@ -330,7 +423,7 @@ export default function AdminChatBox() {
                         onClick={() => closeTicket(selectedTicket.id)}
                         className="text-xs bg-gray-800 text-white px-3 py-1.5 rounded-lg hover:bg-black transition-colors"
                     >
-                        Close Ticket
+                        Close
                     </button>
                   </div>
                 </div>

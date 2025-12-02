@@ -1,9 +1,10 @@
 import { collection, addDoc, Timestamp, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { Notification, NotificationType } from '@/types/notification';
+import { Notification } from '@/types/notification';
+import { MailDocument } from '@/types/mail';
 
 export class NotificationService {
-  // Create a new notification
+  // Create a new notification (In-App)
   static async createNotification(notification: Omit<Notification, 'id' | 'createdAt'>) {
     try {
       const notificationData = {
@@ -18,6 +19,55 @@ export class NotificationService {
       throw error;
     }
   }
+
+  // --- NEW: Send Email via Firebase Extension ---
+  static async sendEmail(to: string, subject: string, htmlContent: string, relatedId?: string) {
+    try {
+      const mailData: Omit<MailDocument, 'delivery'> = {
+        to,
+        message: {
+          subject,
+          html: htmlContent,
+        },
+        createdAt: Timestamp.now(),
+        metadata: {
+          triggerType: 'item_found', // Default, can be parameterized if needed
+          relatedId: relatedId || ''
+        }
+      };
+
+      // Add to 'mail' collection -> Triggers Extension
+      await addDoc(collection(db, 'mail'), mailData);
+      console.log(`Email request queued for ${to}`);
+    } catch (error) {
+      console.error('Error queuing email:', error);
+      // We don't throw here to prevent blocking the main UI flow if email fails
+    }
+  }
+
+  // Email Template Helpers
+  static getResolvedEmailTemplate(userName: string, itemName: string, stationName: string) {
+    return `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #FF385C;">Good News from Traceback!</h1>
+        <p>Dear ${userName},</p>
+        <p>We are pleased to inform you that your item <strong>"${itemName}"</strong> has been successfully matched and is ready for collection.</p>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Item:</strong> ${itemName}</p>
+          <p><strong>Location:</strong> ${stationName}</p>
+          <p><strong>Status:</strong> Ready for Collection / Resolved</p>
+        </div>
+
+        <p>Please visit the station management office with your ID to collect your item.</p>
+        <p>If you have any questions, you can reply to the support ticket in your dashboard.</p>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;" />
+        <p style="font-size: 12px; color: #888;">Traceback - Lost & Found Management System</p>
+      </div>
+    `;
+  }
+  // ------------------------------------------------
 
   // Mark notification as read
   static async markAsRead(notificationId: string) {
@@ -34,9 +84,8 @@ export class NotificationService {
   // Mark all notifications as read for a user
   static async markAllAsRead(userId: string) {
     try {
-      // Note: In a real app, use a batch write. For simplicity here:
-      // This function is usually called from a hook that iterates the local list
-      console.log('Batch mark read not implemented in utility to save reads');
+      // Note: In a real app, use a batch write.
+      console.log('Batch mark read logic placeholder');
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       throw error;
@@ -108,7 +157,6 @@ export class NotificationService {
     });
   }
 
-  // NEW: Notify user when Admin updates item status (e.g., marks as Found/Resolved)
   static async createItemStatusUpdateNotification(
     userId: string,
     itemId: string,
@@ -117,9 +165,9 @@ export class NotificationService {
   ) {
     return this.createNotification({
       userId,
-      type: 'item_found', // Reusing this type as it fits the UI icon
+      type: 'item_found', 
       title: 'Item Update',
-      message: `Good news! Your item "${itemName}" has been marked as ${newStatus}. Check your dashboard for details.`,
+      message: `Good news! Your item "${itemName}" has been marked as ${newStatus}.`,
       relatedId: itemId,
       read: false,
       data: {
@@ -161,7 +209,7 @@ export class NotificationService {
       read: false,
       data: {
         claimId,
-        userName, // Now valid
+        userName, 
         itemName
       }
     });

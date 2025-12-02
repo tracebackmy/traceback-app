@@ -1,236 +1,228 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { useParams, useRouter } from 'next/navigation';
+import { doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { Item } from '@/types/item';
+import { NotificationService } from '@/lib/notification-utils';
 
-export default function AdminItems() {
-  const [items, setItems] = useState<Item[]>([]);
+export default function AdminItemDetail() {
+  const params = useParams();
+  const router = useRouter();
+  const itemId = params.id as string;
+
+  const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'lost' | 'found'>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    fetchItems();
-  }, []);
+    fetchItem();
+  }, [itemId]);
 
-  const fetchItems = async () => {
+  const fetchItem = async () => {
     try {
-      const itemsQuery = query(collection(db, 'items'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(itemsQuery);
-      const itemsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Item[];
-      setItems(itemsData);
+      const docRef = doc(db, 'items', itemId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setItem({ id: docSnap.id, ...docSnap.data() } as Item);
+      } else {
+        router.push('/traceback-admin/items');
+      }
     } catch (error) {
-      console.error('Error fetching items:', error);
+      console.error('Error fetching item:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteItem = async (itemId: string) => {
-    if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) return;
+  // UPDATED: Handle Status Change + Email Notification
+  const updateStatus = async (newStatus: Item['status']) => {
+    if (!item) return;
     
+    // Confirm resolution as it triggers email
+    if (newStatus === 'resolved' && !confirm('Marking as RESOLVED will notify the user via email. Continue?')) {
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      await updateDoc(doc(db, 'items', itemId), {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+      });
+
+      // --- NEW: Trigger Email Logic ---
+      // Only send if status is resolved/found AND we have a user to notify
+      if ((newStatus === 'resolved' || newStatus === 'found') && item.userEmail) {
+        
+        // 1. Send In-App Notification
+        await NotificationService.createItemStatusUpdateNotification(
+          item.userId,
+          itemId,
+          item.title,
+          newStatus
+        );
+
+        // 2. Send Email
+        const emailHtml = NotificationService.getResolvedEmailTemplate(
+          item.userName || 'User',
+          item.title,
+          item.stationId
+        );
+        
+        await NotificationService.sendEmail(
+          item.userEmail,
+          `Traceback Update: Item ${newStatus === 'resolved' ? 'Resolved' : 'Found'}`,
+          emailHtml,
+          itemId
+        );
+        
+        alert(`Status updated to ${newStatus}. Email notification queued.`);
+      } else {
+        alert(`Status updated to ${newStatus}`);
+      }
+      
+      setItem(prev => prev ? { ...prev, status: newStatus } : null);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Failed to update status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure? This cannot be undone.')) return;
     try {
       await deleteDoc(doc(db, 'items', itemId));
-      setItems(items.filter(item => item.id !== itemId));
+      router.push('/traceback-admin/items');
     } catch (error) {
       console.error('Error deleting item:', error);
-      alert('Failed to delete item');
     }
   };
 
-  const updateItemStatus = async (itemId: string, status: Item['status']) => {
-    try {
-      await updateDoc(doc(db, 'items', itemId), { status });
-      setItems(items.map(item => 
-        item.id === itemId ? { ...item, status } : item
-      ));
-    } catch (error) {
-      console.error('Error updating item status:', error);
-    }
-  };
-
-  const filteredItems = items.filter(item => {
-    const matchesFilter = filter === 'all' || item.type === filter;
-    const matchesSearch = 
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.stationId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'N/A';
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleDateString();
-    } catch {
-      return 'N/A';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/3 mb-8"></div>
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-20 bg-gray-200 rounded"></div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (!item) return <div className="p-8 text-center">Item not found</div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Manage Items</h1>
-          <p className="text-gray-600 mt-1">Inventory & Lost Reports</p>
-        </div>
-        <Link
-          href="/traceback-admin/items/new"
-          className="bg-[#FF385C] text-white px-4 py-2 rounded-lg hover:bg-[#E31C5F] transition-colors flex items-center"
-        >
-          <span className="mr-2">+</span> Register Found Item
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <Link href="/traceback-admin/items" className="text-gray-500 hover:text-gray-900 flex items-center">
+          ← Back to Inventory
         </Link>
+        <button
+          onClick={handleDelete}
+          className="text-red-600 hover:text-red-800 text-sm font-medium"
+        >
+          Delete Item
+        </button>
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-lg border border-gray-200">
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === 'all' ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilter('lost')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === 'lost' ? 'bg-red-50 text-red-700 border border-red-100' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            Lost Reports
-          </button>
-          <button
-            onClick={() => setFilter('found')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              filter === 'found' ? 'bg-green-50 text-green-700 border border-green-100' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            Found Inventory
-          </button>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Header Section */}
+        <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                item.type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+              }`}>
+                {item.type}
+              </span>
+            </div>
+            <p className="text-gray-500 text-sm">ID: {item.id}</p>
+          </div>
+          
+          <div className="flex flex-col items-end gap-2">
+            <label className="text-xs font-semibold text-gray-500 uppercase">Current Status</label>
+            <select
+              value={item.status}
+              onChange={(e) => updateStatus(e.target.value as Item['status'])}
+              disabled={updating}
+              className={`px-4 py-2 rounded-lg border font-medium cursor-pointer focus:ring-2 focus:ring-[#FF385C] ${
+                item.status === 'open' ? 'bg-white border-gray-300 text-gray-900' :
+                item.status === 'resolved' ? 'bg-green-50 border-green-200 text-green-700' :
+                item.status === 'closed' ? 'bg-gray-100 border-gray-200 text-gray-500' :
+                'bg-blue-50 border-blue-200 text-blue-700'
+              }`}
+            >
+              <option value="open">Open</option>
+              <option value="claimed">Claimed</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
         </div>
-        
-        <input
-          type="text"
-          placeholder="Search items..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full sm:w-64 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#FF385C] focus:border-transparent"
-        />
-      </div>
 
-      {/* Items Table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    No items found.
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        {item.imageUrls && item.imageUrls.length > 0 ? (
-                          <img 
-                            src={item.imageUrls[0]} 
-                            alt="" 
-                            className="h-10 w-10 rounded object-cover mr-3 border border-gray-200"
-                          />
-                        ) : (
-                           <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center mr-3 border border-gray-200 text-xs text-gray-400">No Img</div>
-                        )}
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{item.title}</div>
-                          <div className="text-xs text-gray-500">{item.category}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        item.type === 'lost' 
-                          ? 'bg-red-100 text-red-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {item.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{item.stationId}</div>
-                      <div className="text-xs text-gray-500">{formatDate(item.createdAt)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={item.status}
-                        onChange={(e) => updateItemStatus(item.id, e.target.value as Item['status'])}
-                        className={`text-sm border-gray-300 rounded px-2 py-1 border focus:ring-2 focus:ring-[#FF385C] focus:border-transparent cursor-pointer ${
-                          item.status === 'resolved' ? 'text-green-700 bg-green-50' :
-                          item.status === 'closed' ? 'text-gray-500 bg-gray-50' : 
-                          item.status === 'claimed' ? 'text-blue-700 bg-blue-50' : 'text-gray-900'
-                        }`}
-                      >
-                        <option value="open">Open</option>
-                        <option value="claimed">Claimed</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-3">
-                      <Link
-                        href={`/traceback-admin/items/${item.id}`}
-                        className="text-[#FF385C] hover:text-[#E31C5F]"
-                      >
-                        Details
-                      </Link>
-                      <button
-                        onClick={() => deleteItem(item.id)}
-                        className="text-gray-400 hover:text-red-600"
-                        title="Delete Item"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column: Details */}
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-2">Description</h3>
+              <p className="text-gray-900 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                {item.description}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Category</h3>
+                <p className="font-medium">{item.category}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Station</h3>
+                <p className="font-medium">{item.stationId}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Mode</h3>
+                <p className="font-medium">{item.mode}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Line</h3>
+                <p className="font-medium">{item.line}</p>
+              </div>
+            </div>
+
+            {/* User Info (if available) */}
+            {(item.userEmail || item.userName) && (
+              <div className="border-t border-gray-100 pt-6">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Reported By</h3>
+                <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                    {item.userName ? item.userName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{item.userName || 'Unknown User'}</p>
+                    <p className="text-xs text-gray-600">{item.userEmail}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Images */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Images</h3>
+            {item.imageUrls && item.imageUrls.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {item.imageUrls.map((url, idx) => (
+                  <div key={idx} className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                    <img 
+                      src={url} 
+                      alt={`Item ${idx + 1}`} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="aspect-video bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center text-gray-400">
+                <span>No images uploaded</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
