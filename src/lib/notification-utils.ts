@@ -1,5 +1,5 @@
 import { collection, addDoc, Timestamp, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from '@/lib/firebase';
 import { Notification } from '@/types/notification';
 import { MailDocument } from '@/types/mail';
 
@@ -28,17 +28,19 @@ export class NotificationService {
         message: {
           subject,
           html: htmlContent,
+          // Added text fallback for better email deliverability and anti-spam compliance
+          text: htmlContent.replace(/<[^>]*>?/gm, ''), 
         },
         createdAt: Timestamp.now(),
         metadata: {
-          triggerType: 'item_found', // Default, can be parameterized if needed
+          triggerType: 'item_found', 
           relatedId: relatedId || ''
         }
       };
 
       // Add to 'mail' collection -> Triggers Extension
-      await addDoc(collection(db, 'mail'), mailData);
-      console.log(`Email request queued for ${to}`);
+      const docRef = await addDoc(collection(db, 'mail'), mailData);
+      console.log(`Email request queued for ${to} (Doc ID: ${docRef.id})`);
     } catch (error) {
       console.error('Error queuing email:', error);
       // We don't throw here to prevent blocking the main UI flow if email fails
