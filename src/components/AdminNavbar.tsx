@@ -29,7 +29,6 @@ export default function AdminNavbar() {
   const navigation = [
     { name: 'Dashboard', href: '/traceback-admin/dashboard' },
     { name: 'Inventory', href: '/traceback-admin/items' }, // Renamed for clarity
-    { name: 'Tickets', href: '/traceback-admin/tickets' },
     { name: 'Claims', href: '/traceback-admin/claims' },
     { name: 'Users', href: '/traceback-admin/users' },
     { name: 'CCTV', href: '/traceback-admin/cctv' },
