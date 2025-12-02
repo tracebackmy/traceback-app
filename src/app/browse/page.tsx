@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import Link from 'next/link'
-import Image from 'next/image'
+// Removed Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { format } from 'date-fns'
 
@@ -149,14 +149,12 @@ function BrowseContent() {
               href={`/items/${item.id}`}
               className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
             >
-              <div className="h-48 bg-gray-100 relative flex items-center justify-center">
+              <div className="h-48 bg-gray-100 relative flex items-center justify-center overflow-hidden">
                 {item.imageUrls && item.imageUrls.length > 0 ? (
-                  <Image
+                  <img
                     src={item.imageUrls[0]}
                     alt={item.title}
-                    fill
-                    unoptimized={true} // FIX: Bypasses Next.js Optimization
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
                   <div className="text-gray-400 flex flex-col items-center">

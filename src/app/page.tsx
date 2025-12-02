@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+// Removed Image from 'next/image' as we are switching to img tag
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { format } from 'date-fns'
@@ -124,14 +124,12 @@ export default function Home() {
                 href={`/items/${item.id}`}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 overflow-hidden"
               >
-                <div className="h-48 bg-gray-200 flex items-center justify-center relative">
+                <div className="h-48 bg-gray-200 flex items-center justify-center overflow-hidden">
                   {item.imageUrls && item.imageUrls.length > 0 ? (
-                    <Image
+                    <img
                       src={item.imageUrls[0]}
                       alt={item.title}
-                      fill
-                      unoptimized={true} // FIX: Bypasses Next.js Optimization
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="text-gray-400">No Image</div>

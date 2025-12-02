@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useParams } from 'next/navigation'
-import Image from 'next/image'
+// Removed next/image as we are switching to standard img tag for stability
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
@@ -83,14 +83,13 @@ export default function ItemDetailPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Image Gallery */}
-        <div className="h-96 bg-gray-100 relative flex items-center justify-center">
+        <div className="h-96 bg-gray-100 relative flex items-center justify-center overflow-hidden">
           {item.imageUrls && item.imageUrls.length > 0 ? (
-            <Image
+            /* Switch to standard img tag to match Admin page logic and bypass Next.js optimization issues */
+            <img
               src={item.imageUrls[0]}
               alt={item.title}
-              fill
-              unoptimized={true} // FIX: Bypasses Next.js Optimization
-              className="object-contain"
+              className="w-full h-full object-contain"
             />
           ) : (
              <div className="text-center text-gray-400">
