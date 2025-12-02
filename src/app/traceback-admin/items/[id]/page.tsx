@@ -53,9 +53,10 @@ export default function AdminItemDetail() {
         updatedAt: serverTimestamp()
       });
 
-      // --- NEW: Trigger Email Logic ---
-      // Only send if status is resolved/found AND we have a user to notify
-      if ((newStatus === 'resolved' || newStatus === 'found') && item.userEmail) {
+      // --- TRIGGER EMAIL LOGIC ---
+      // Fixed: Removed " || newStatus === 'found'" because 'found' is not a valid Item['status'] type.
+      // Only 'resolved' implies the item has been handled/returned.
+      if (newStatus === 'resolved' && item.userEmail) {
         
         // 1. Send In-App Notification
         await NotificationService.createItemStatusUpdateNotification(
@@ -74,7 +75,7 @@ export default function AdminItemDetail() {
         
         await NotificationService.sendEmail(
           item.userEmail,
-          `Traceback Update: Item ${newStatus === 'resolved' ? 'Resolved' : 'Found'}`,
+          `Traceback Update: Item Resolved`,
           emailHtml,
           itemId
         );
