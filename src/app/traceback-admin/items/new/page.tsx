@@ -61,7 +61,9 @@ export default function NewItemPage() {
     if (images.length === 0) return [];
     
     const uploadPromises = images.map(async (image) => {
-      const imageRef = ref(storage, `admin-items/${Date.now()}-${image.name}`);
+      // FIX: Changed folder from 'admin-items' to 'public-items/found'
+      // This ensures the images are publicly accessible for the Browse page
+      const imageRef = ref(storage, `public-items/found/${Date.now()}-${image.name}`);
       const snapshot = await uploadBytes(imageRef, image);
       return getDownloadURL(snapshot.ref);
     });
