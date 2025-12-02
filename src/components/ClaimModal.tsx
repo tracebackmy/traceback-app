@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { collection, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ClaimFormData } from '@/types/claim';
 
@@ -30,13 +30,41 @@ export default function ClaimModal({
     proofDescription: ''
   });
 
+  // Helper to create the linked ticket
+  const createClaimTicket = async (claimId: string, reason: string) => {
+    if (!user) return;
+
+    const ticketData = {
+      userId: user.uid,
+      userName: user.displayName || user.email || 'Unknown User',
+      userEmail: user.email || 'No email',
+      subject: `Claim Request: ${itemName}`,
+      status: 'open' as const,
+      priority: 'medium' as const,
+      
+      // Context Awareness
+      contextType: 'claim_inquiry',
+      relatedId: claimId, // Link to the CLAIM document, not just the item
+      contextData: {
+        itemTitle: itemName,
+        claimStatus: 'pending',
+        // We can add more specific claim context here if needed
+      },
+
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    await addDoc(collection(db, 'tickets'), ticketData);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     setLoading(true);
     try {
-      // Create claim request
+      // 1. Create claim request
       const claimData = {
         itemId,
         userId: user.uid,
@@ -52,12 +80,15 @@ export default function ClaimModal({
 
       const claimRef = await addDoc(collection(db, 'claims'), claimData);
 
-      // Update item claim status
+      // 2. Update item claim status
       await updateDoc(doc(db, 'items', itemId), {
         claimStatus: 'claim-pending',
         currentClaimId: claimRef.id,
         updatedAt: Timestamp.now()
       });
+
+      // 3. Create linked Support Ticket (Context Aware)
+      await createClaimTicket(claimRef.id, formData.claimReason);
       
       // Reset form and close modal
       setFormData({
