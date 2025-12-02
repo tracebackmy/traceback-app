@@ -1,4 +1,3 @@
-// src/types/chat.ts
 import { Timestamp } from 'firebase/firestore';
 
 export interface ChatMessage {
@@ -24,6 +23,16 @@ export interface TypingIndicator {
   timestamp: Timestamp | Date;
 }
 
+// New Types for Context Awareness
+export type TicketContextType = 'general' | 'lost_report' | 'claim_inquiry';
+
+export interface TicketContextData {
+  itemTitle?: string;
+  itemImage?: string; // URL of the first image for quick reference
+  claimStatus?: string;
+  stationName?: string; // Useful for admins to know location immediately
+}
+
 export interface Ticket {
   id: string;
   userId: string;
@@ -34,6 +43,12 @@ export interface Ticket {
   status: 'open' | 'closed' | 'in-progress';
   priority: 'low' | 'medium' | 'high';
   assignedAdmin?: string;
+  
+  // New Context Fields
+  contextType?: TicketContextType; 
+  relatedId?: string; // ID of the Item or the Claim document
+  contextData?: TicketContextData; // Snapshot data for UI headers
+
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
   lastMessage?: string;
