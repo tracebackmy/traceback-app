@@ -155,6 +155,7 @@ function BrowseContent() {
                     src={item.imageUrls[0]}
                     alt={item.title}
                     fill
+                    unoptimized={true} // FIX: Bypasses Next.js Optimization
                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (

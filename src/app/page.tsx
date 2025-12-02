@@ -124,14 +124,14 @@ export default function Home() {
                 href={`/items/${item.id}`}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 overflow-hidden"
               >
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
+                <div className="h-48 bg-gray-200 flex items-center justify-center relative">
                   {item.imageUrls && item.imageUrls.length > 0 ? (
                     <Image
                       src={item.imageUrls[0]}
                       alt={item.title}
-                      width={300}
-                      height={192}
-                      className="w-full h-full object-cover"
+                      fill
+                      unoptimized={true} // FIX: Bypasses Next.js Optimization
+                      className="object-cover"
                     />
                   ) : (
                     <div className="text-gray-400">No Image</div>

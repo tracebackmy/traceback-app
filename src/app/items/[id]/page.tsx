@@ -19,10 +19,10 @@ interface Item {
   line: string
   stationId: string
   status: string
-  claimStatus?: string // added
+  claimStatus?: string
   imageUrls: string[]
   createdAt: unknown
-  userId: string // added
+  userId: string
 }
 
 export default function ItemDetailPage() {
@@ -89,7 +89,8 @@ export default function ItemDetailPage() {
               src={item.imageUrls[0]}
               alt={item.title}
               fill
-              className="object-cover"
+              unoptimized={true} // FIX: Bypasses Next.js Optimization
+              className="object-contain"
             />
           ) : (
              <div className="text-center text-gray-400">
