@@ -139,7 +139,7 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('fullName', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.fullName ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
+              } bg-white text-gray-900 placeholder-gray-500 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
           </div>
@@ -155,7 +155,7 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('phone', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.phone ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
+              } bg-white text-gray-900 placeholder-gray-500 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
           </div>
@@ -171,7 +171,7 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('email', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.email ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
+              } bg-white text-gray-900 placeholder-gray-500 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
           </div>
@@ -187,7 +187,7 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('password', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.password ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
+              } bg-white text-gray-900 placeholder-gray-500 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
           </div>
@@ -203,7 +203,7 @@ export default function RegisterPage() {
               onChange={(e) => handleFieldChange('confirmPassword', e.target.value)}
               className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
                 errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
+              } bg-white text-gray-900 placeholder-gray-500 rounded-md focus:outline-none focus:ring-[#FF385C] focus:border-[#FF385C] sm:text-sm`}
             />
             {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
           </div>
