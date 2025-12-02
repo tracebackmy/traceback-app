@@ -15,7 +15,6 @@ export default function AdminTicketsPage() {
     // 1. Build the query
     let ticketsQuery;
     
-    // We sort by 'updatedAt' so the most active tickets stay at the top
     if (filter === 'all') {
       ticketsQuery = query(collection(db, 'tickets'), orderBy('updatedAt', 'desc'));
     } else {
@@ -26,8 +25,7 @@ export default function AdminTicketsPage() {
       );
     }
 
-    // 2. Real-time listener (onSnapshot) instead of getDocs
-    // This allows admins to see new tickets instantly without refreshing
+    // 2. Real-time listener
     const unsubscribe = onSnapshot(ticketsQuery, (snapshot) => {
       const ticketsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -41,21 +39,24 @@ export default function AdminTicketsPage() {
       setLoading(false);
     });
 
-    // Cleanup listener on unmount
     return () => unsubscribe();
   }, [filter]);
 
-  // Helper for formatting dates
+  // Helper: Format Date Safely
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '-';
-    // Handle both Firestore Timestamp and JS Date objects
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    } catch (e) {
+      return 'Invalid Date';
+    }
   };
 
-  // Helper for badge colors
+  // Helper: Status Color with Fallback
   const getStatusColor = (status: string) => {
-    switch (status) {
+    const safeStatus = (status || 'open').toLowerCase(); // Safety check
+    switch (safeStatus) {
       case 'open': return 'bg-green-100 text-green-800';
       case 'in-progress': return 'bg-yellow-100 text-yellow-800';
       case 'closed': return 'bg-gray-100 text-gray-800';
@@ -63,13 +64,21 @@ export default function AdminTicketsPage() {
     }
   };
 
+  // Helper: Priority Color with Fallback
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
+    const safePriority = (priority || 'medium').toLowerCase(); // Safety check
+    switch (safePriority) {
       case 'high': return 'text-red-600 font-bold';
       case 'medium': return 'text-orange-500 font-medium';
       case 'low': return 'text-blue-500';
       default: return 'text-gray-500';
     }
+  };
+
+  // Helper: Format Text (Capitalize) Safely
+  const capitalize = (text: string) => {
+    if (!text) return 'Unknown';
+    return text.charAt(0).toUpperCase() + text.slice(1);
   };
 
   if (loading) {
@@ -128,45 +137,53 @@ export default function AdminTicketsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {tickets.map((ticket) => (
-                  <tr key={ticket.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <Link href={`/traceback-admin/tickets/${ticket.id}`} className="block group">
-                        <div className="text-sm font-medium text-gray-900 group-hover:text-[#FF385C]">
-                          {ticket.subject}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          ID: {ticket.id.substring(0, 8)}...
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{ticket.userName}</div>
-                      <div className="text-xs text-gray-500">{ticket.userEmail}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium uppercase ${getStatusColor(ticket.status)}`}>
-                        {ticket.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={getPriorityColor(ticket.priority)}>
-                        {ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatDate(ticket.updatedAt)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link 
-                        href={`/traceback-admin/tickets/${ticket.id}`}
-                        className="text-[#FF385C] hover:text-[#E31C5F] text-sm font-medium"
-                      >
-                        Reply →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {tickets.map((ticket) => {
+                  // SAFETY: Define safe variables before using them in render
+                  const safePriority = ticket.priority || 'medium';
+                  const safeStatus = ticket.status || 'open';
+                  const safeSubject = ticket.subject || 'No Subject';
+                  
+                  return (
+                    <tr key={ticket.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <Link href={`/traceback-admin/tickets/${ticket.id}`} className="block group">
+                          <div className="text-sm font-medium text-gray-900 group-hover:text-[#FF385C]">
+                            {safeSubject}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            ID: {ticket.id.substring(0, 8)}...
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{ticket.userName || 'Unknown User'}</div>
+                        <div className="text-xs text-gray-500">{ticket.userEmail || '-'}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium uppercase ${getStatusColor(safeStatus)}`}>
+                          {safeStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {/* FIX: We use safePriority here instead of ticket.priority */}
+                        <span className={getPriorityColor(safePriority)}>
+                          {capitalize(safePriority)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {formatDate(ticket.updatedAt)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Link 
+                          href={`/traceback-admin/tickets/${ticket.id}`}
+                          className="text-[#FF385C] hover:text-[#E31C5F] text-sm font-medium"
+                        >
+                          Reply →
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
