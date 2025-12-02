@@ -13,7 +13,8 @@ import {
   Timestamp, 
   doc, 
   updateDoc,
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { ChatMessage, TypingIndicator, Ticket } from '@/types/chat'
@@ -39,6 +40,36 @@ export default function ChatBox() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // --- NEW: Event Listener for Opening Specific Tickets ---
+  useEffect(() => {
+    const handleOpenTicket = async (event: CustomEvent<{ ticketId: string }>) => {
+      const ticketId = event.detail.ticketId;
+      if (!ticketId) return;
+
+      setIsOpen(true);
+      setLoading(true);
+
+      try {
+        // Fetch the specific ticket immediately
+        const ticketDoc = await getDoc(doc(db, 'tickets', ticketId));
+        if (ticketDoc.exists()) {
+          const ticketData = { id: ticketDoc.id, ...ticketDoc.data() } as Ticket;
+          setActiveTicket(ticketData);
+        }
+      } catch (error) {
+        console.error("Error opening specific ticket:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('open-chat-ticket' as any, handleOpenTicket as any);
+    return () => {
+      window.removeEventListener('open-chat-ticket' as any, handleOpenTicket as any);
+    };
+  }, []);
+  // -----------------------------------------------------
+
   useEffect(() => {
     if (!activeTicket?.id) return;
 
@@ -57,6 +88,7 @@ export default function ChatBox() {
   useEffect(() => {
     if (!user || !isOpen) return;
 
+    // Only subscribe to list if no active ticket is forced, OR just keep list updated in bg
     const ticketsQuery = query(
       collection(db, 'tickets'),
       where('userId', '==', user.uid),
@@ -69,13 +101,15 @@ export default function ChatBox() {
         ...doc.data()
       })) as Ticket[]
       setTickets(ticketsData)
-      if (!activeTicket) {
-         const openTicket = ticketsData.find(ticket => ticket.status === 'open')
-         if (openTicket) setActiveTicket(openTicket)
-      }
+      
+      // Optional: Auto-select latest open ticket only if none selected
+      // if (!activeTicket) {
+      //    const openTicket = ticketsData.find(ticket => ticket.status === 'open')
+      //    if (openTicket) setActiveTicket(openTicket)
+      // }
     })
     return () => unsubscribe()
-  }, [user, isOpen, activeTicket])
+  }, [user, isOpen]) // Removed activeTicket dep to prevent loop resetting
 
   useEffect(() => {
     if (!activeTicket) return;
@@ -133,14 +167,15 @@ export default function ChatBox() {
         userId: user.uid,
         userName: user.displayName || user.email || 'Unknown User',
         userEmail: user.email || 'No email',
-        subject: 'Lost Item Assistance',
+        subject: 'General Inquiry', // Changed default subject
         status: 'open' as const,
         priority: 'medium' as const,
+        contextType: 'general', // Default context
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       }
       const docRef = await addDoc(collection(db, 'tickets'), ticketData)
-      const newTicket: Ticket = { id: docRef.id, ...ticketData }
+      const newTicket: Ticket = { id: docRef.id, ...ticketData } as Ticket;
       setActiveTicket(newTicket)
     } catch (error) {
       console.error('Error creating ticket:', error)
@@ -236,6 +271,7 @@ export default function ChatBox() {
         className="fixed bottom-6 right-6 bg-[#FF385C] text-white w-14 h-14 rounded-full shadow-xl hover:bg-[#E31C5F] transition-all duration-200 flex items-center justify-center z-50 transform hover:scale-105 active:scale-95"
         title="Open Support Chat"
       >
+        {/* Badge for active/unread could go here */}
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
@@ -243,10 +279,20 @@ export default function ChatBox() {
 
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-96 h-[550px] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col z-50 overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
+          
+          {/* Header - Now Context Aware */}
           <div className="bg-[#FF385C] text-white p-4 flex justify-between items-center shadow-sm">
             <div>
-              <h3 className="font-bold text-lg">Support Chat</h3>
-              <p className="text-xs opacity-90">{activeTicket ? 'Connected with Admin' : 'How can we help?'}</p>
+              <h3 className="font-bold text-lg">
+                {activeTicket?.contextData?.itemTitle 
+                  ? `Item: ${activeTicket.contextData.itemTitle.substring(0, 15)}${activeTicket.contextData.itemTitle.length > 15 ? '...' : ''}` 
+                  : 'Support Chat'}
+              </h3>
+              <p className="text-xs opacity-90">
+                {activeTicket 
+                  ? `Ticket #${activeTicket.id.substring(0, 6)} • ${activeTicket.status}` 
+                  : 'How can we help?'}
+              </p>
             </div>
             <button onClick={() => setIsOpen(false)} className="text-white hover:bg-white/20 p-1.5 rounded-full transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -279,7 +325,10 @@ export default function ChatBox() {
                            {ticket.status.toUpperCase()}
                          </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">{formatTimestamp(ticket.updatedAt)}</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-xs text-gray-500">{ticket.contextType === 'claim_inquiry' ? 'Claim Request' : 'General'}</p>
+                        <p className="text-xs text-gray-400">{formatTimestamp(ticket.updatedAt)}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -289,6 +338,15 @@ export default function ChatBox() {
 
           {activeTicket && (
             <>
+              {/* Context Bar (if data exists) */}
+              {activeTicket.contextData && (
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 flex items-center text-xs text-gray-600">
+                  <span className="font-medium mr-2">Reference:</span>
+                  {activeTicket.contextData.stationName && <span className="mr-2">📍 {activeTicket.contextData.stationName}</span>}
+                  {activeTicket.contextData.claimStatus && <span className="bg-blue-100 text-blue-800 px-1.5 rounded uppercase text-[10px]">{activeTicket.contextData.claimStatus}</span>}
+                </div>
+              )}
+
               <div className="flex-1 p-4 overflow-y-auto bg-gray-50/50">
                 <div className="mb-4">
                    <button onClick={() => setActiveTicket(null)} className="text-xs text-gray-500 hover:text-gray-900 flex items-center font-medium">
