@@ -8,6 +8,9 @@ import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ToastProvider'
 import Image from 'next/image'
+// Import the updated Ticket types if you want strict typing here, 
+// though we can inline the object structure for simplicity in this file.
+// Ideally: import { Ticket } from '@/types/chat';
 
 interface FormData {
   title: string
@@ -87,7 +90,8 @@ export default function ReportPage() {
     return Promise.all(uploadPromises)
   }
 
-  const createSupportTicket = async (itemId: string, itemTitle: string) => {
+  // UPDATED: Create context-aware support ticket
+  const createSupportTicket = async (itemId: string, itemTitle: string, firstImageUrl?: string) => {
     if (!user) return
 
     const ticketData = {
@@ -96,7 +100,18 @@ export default function ReportPage() {
       userEmail: user.email || 'No email',
       subject: `Lost Item Report: ${itemTitle}`,
       status: 'open' as const,
-      itemId: itemId,
+      priority: 'medium' as const, // Default priority
+      
+      // New Context Fields
+      contextType: 'lost_report',
+      relatedId: itemId,
+      contextData: {
+        itemTitle: itemTitle,
+        itemImage: firstImageUrl || null,
+        stationName: formData.stationId,
+        // We can add more helpful context here
+      },
+
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }
@@ -144,7 +159,9 @@ export default function ReportPage() {
       }
 
       const docRef = await addDoc(collection(db, 'items'), itemData)
-      await createSupportTicket(docRef.id, formData.title)
+      
+      // UPDATED: Pass the first image URL to the ticket for better admin context
+      await createSupportTicket(docRef.id, formData.title, imageUrls[0])
 
       showToast('Report submitted successfully! Check your dashboard.', 'success')
       
